@@ -1,6 +1,6 @@
-From 62dab435ab7c71e8d1647d594c5e18fc90919cdf Mon Sep 17 00:00:00 2001
+From 607f6f551b158f755d940fa11e4b43aa9d3ea15d Mon Sep 17 00:00:00 2001
 From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
-Date: Sun, 13 Oct 2024 04:27:08 +0200
+Date: Sun, 13 Oct 2024 13:05:06 +0200
 Subject: [PATCH 7/9] Fix command gc
 
 ---
@@ -8,7 +8,7 @@ Subject: [PATCH 7/9] Fix command gc
  1 file changed, 21 insertions(+), 14 deletions(-)
 
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgc.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgc.java
-index 16082f3c9..c8d7c90cc 100644
+index 16082f3c9..495b27b3f 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgc.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgc.java
 @@ -37,27 +37,34 @@ public class Commandgc extends EssentialsCommand {
@@ -28,20 +28,20 @@ index 16082f3c9..c8d7c90cc 100644
 -            int tileEntities = 0;
 -
 +            // Euphyllia start
-+            String worldType = switch (w.getEnvironment()) {
++            final String worldType = switch (w.getEnvironment()) {
 +                case NETHER -> "Nether";
 +                case THE_END -> "The End";
 +                default -> "World";
 +            };
 +            final java.util.concurrent.atomic.AtomicInteger tileEntities = new java.util.concurrent.atomic.AtomicInteger();
 +            final java.util.concurrent.atomic.AtomicInteger entities = new java.util.concurrent.atomic.AtomicInteger(0);
-+            List<java.util.concurrent.CompletableFuture<Void>> futures = new java.util.ArrayList<>();
-+            int chunkLoadedLength = w.getLoadedChunks().length;
-+            String worldName = w.getName();
++            final List<java.util.concurrent.CompletableFuture<Void>> futures = new java.util.ArrayList<>();
++            final int chunkLoadedLength = w.getLoadedChunks().length;
++            final String worldName = w.getName();
              try {
                  for (final Chunk chunk : w.getLoadedChunks()) {
 -                    tileEntities += chunk.getTileEntities().length;
-+                    java.util.concurrent.CompletableFuture<Void> future = new java.util.concurrent.CompletableFuture<>();
++                    final java.util.concurrent.CompletableFuture<Void> future = new java.util.concurrent.CompletableFuture<>();
 +                    futures.add(future);
 +                    org.bukkit.Bukkit.getRegionScheduler().execute(ess, chunk.getWorld(), chunk.getX(), chunk.getZ(), () -> {
 +                        tileEntities.addAndGet(chunk.getTileEntities().length);
@@ -56,7 +56,7 @@ index 16082f3c9..c8d7c90cc 100644
 -            sender.sendTl("gcWorld", worldType, w.getName(), w.getLoadedChunks().length, w.getEntities().size(), tileEntities);
 +            java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0])).thenRunAsync(() ->
 +                sender.sendTl("gcWorld", worldType, worldName, chunkLoadedLength, entities.get(), tileEntities.get()));
-+        // Euphyllia End
++            // Euphyllia End
          }
      }
  }
