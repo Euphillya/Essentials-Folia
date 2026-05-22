@@ -3,27 +3,28 @@ From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
 Date: Tue, 19 May 2026 12:27:03 +0200
 Subject: [PATCH 21/21] Fix EssentialsPlayerListener#updateCompass
 
+Fix IllegalStateException("Not sleeping") thrown by CraftPlayer.getBedLocation()
+on Folia 26.1.2. Replace getBedLocation() with getRespawnLocation() which does
+not require the player to be sleeping and returns the player's respawn point.
+
 ---
- .../earth2me/essentials/EssentialsPlayerListener.java | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ .../earth2me/essentials/EssentialsPlayerListener.java | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
-index a90a56c47..9ee14b52e 100644
+index a90a56c47..b1c2e3f01 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
-@@ -622,6 +622,17 @@ public class EssentialsPlayerListener implements Listener {
+@@ -622,6 +622,14 @@ public class EssentialsPlayerListener implements Listener {
  
          final Location loc = user.getHome(user.getLocation());
          if (loc == null) {
 +            if (VersionUtil.isFoliaServer()) {
 +                final Player player = user.getBase();
-+                final Location bedLocation = player.getBedLocation();
-+                if (bedLocation == null) return;
-+                player.teleportAsync(bedLocation, TeleportCause.PLUGIN).thenAccept(success -> {
-+                    if (success) {
-+                        user.getBase().setCompassTarget(bedLocation);
-+                    }
-+                });
++                final Location respawnLocation = player.getRespawnLocation();
++                if (respawnLocation != null) {
++                    player.setCompassTarget(respawnLocation);
++                }
 +                return;
 +            }
              PaperLib.getBedSpawnLocationAsync(user.getBase(), false).thenAccept(location -> {
@@ -31,4 +32,3 @@ index a90a56c47..9ee14b52e 100644
                      user.getBase().setCompassTarget(location);
 -- 
 2.54.0.windows.1
-
