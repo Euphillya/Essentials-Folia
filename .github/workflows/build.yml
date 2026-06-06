@@ -1,74 +1,61 @@
-name: Build and Upload Jar
+name: Build
 
 on:
   push:
-    branches:
-      - folia-patches
+    branches: [ folia-patches ]
+  pull_request:
+    branches: [ folia-patches ]
 
 permissions: write-all
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: false
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          java-version: '25'
+          java-version: '21'
           distribution: 'temurin'
 
-      - name: Grant execute permission to script
-        run: bash -c "chmod +x script.sh"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Update upstream and apply patches
-        shell: bash
+      - name: Configure Git
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "Action Github"
-          ./script.sh updateUpstream
-          ./script.sh applyPatches
 
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v3
+      - name: Apply patches
+        run: ./gradlew applyPatches
 
       - name: Build
-        shell: bash
-        run: |
-          cd Essentials-Patchs
-          ./gradlew build --stacktrace -x test -x checkstyleMain --refresh-dependencies
+        run: ./gradlew -p Essentials-Patched build --stacktrace -x test -x checkstyleMain --refresh-dependencies --continue
 
-      - name: Archive plugin jars on GitHub
+      - name: Archive jars
         uses: actions/upload-artifact@v4
         with:
-          name: EssentialsX plugin jars
-          path: Essentials-Patchs/jars/
+          name: EssentialsX-Folia jars
+          path: Essentials-Patched/jars/
 
       - name: Create Release
         if: github.event_name != 'pull_request'
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ env.tag }}
-          name: ${{ env.project_id_b }} - ${{ github.run_number }}
+          tag: build-${{ github.ref_name }}-${{ github.run_number }}
+          name: EssentialsX-Folia - ${{ github.run_number }}
           body: |
             This release is automatically compiled by GitHub Actions
             ### Commit Message
-            ${{ env.commit_msg }}
-          artifacts: Essentials-Patchs/jars/*.jar
+            ${{ github.event.head_commit.message }}
+          artifacts: Essentials-Patched/jars/*.jar
           generateReleaseNotes: true
-          prerelease: ${{ env.pre }}
-          makeLatest: ${{ env.make_latest }}
+          makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
           replacesArtifacts: false
-
-env:
-  tag: build-${{ github.ref_name }}-${{ github.run_number }}
-  project_id_b: EssentialsX-Folia
-  commit_id: ${{ github.sha }}
-  commit_msg: ${{ github.event.head_commit.message }}
-  pre: false
-  make_latest: true
