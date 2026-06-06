@@ -1,1 +1,18 @@
-*-Patchs/
+# Dossier généré par gitpatcher (ne pas commiter)
+Essentials-Patched/
+
+# Gradle
+.gradle/
+build/
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

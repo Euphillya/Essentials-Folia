@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 05:02:26 +0200
+Subject: [PATCH] Rebrand
+
+
+diff --git a/Essentials/src/main/resources/plugin.yml b/Essentials/src/main/resources/plugin.yml
+index 68496ebbbdff077d5f559df0e2e6bfc9e82b3ae4..f9ee0a3cbb6ef6dd5a733f3d0985107cd91ba79a 100644
+--- a/Essentials/src/main/resources/plugin.yml
++++ b/Essentials/src/main/resources/plugin.yml
+@@ -1578,3 +1578,5 @@ permissions:
+       essentials.tempban.exempt: true
+       essentials.exempt.protect: true
+       essentials.editsign.waxed.exempt: true
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/EssentialsAntiBuild/src/main/resources/plugin.yml b/EssentialsAntiBuild/src/main/resources/plugin.yml
+index bbfd21dd709b8910c43f0edf9982bb69d04911c5..4824e418be8e0764cca949077f4d55a64f15fd10 100644
+--- a/EssentialsAntiBuild/src/main/resources/plugin.yml
++++ b/EssentialsAntiBuild/src/main/resources/plugin.yml
+@@ -41,3 +41,5 @@ permissions:
+       essentials.protect.exemptbreak: true
+       essentials.protect.exemptplacement: true
+       essentials.protect.exemptusage: true
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/EssentialsChat/src/main/resources/plugin.yml b/EssentialsChat/src/main/resources/plugin.yml
+index a6b5103403a6a17955f966b7db79e8f508c93ddf..f52ad5c52d2c489ec1bf96dc16ffca5a95f2b7aa 100644
+--- a/EssentialsChat/src/main/resources/plugin.yml
++++ b/EssentialsChat/src/main/resources/plugin.yml
+@@ -43,3 +43,5 @@ permissions:
+   essentials.chat.receive.question:
+     default: true
+     description: Allows access to receiving global question chat messages
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/EssentialsDiscord/src/main/resources/plugin.yml b/EssentialsDiscord/src/main/resources/plugin.yml
+index ed6cb51d7163ea0507f9ab3274c84578e63d41ac..8d5864cc2e8d57bce61cf0b47b68723bc420e438 100644
+--- a/EssentialsDiscord/src/main/resources/plugin.yml
++++ b/EssentialsDiscord/src/main/resources/plugin.yml
+@@ -34,3 +34,5 @@ permissions:
+     description: Allows the bearer to ping users in Discord for /discordbroadcast
+   essentials.discordbroadcast.<channel>:
+     description: Allows access to the /discordbroadcast command for the specified channel
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/EssentialsDiscordLink/src/main/resources/plugin.yml b/EssentialsDiscordLink/src/main/resources/plugin.yml
+index ff92febcbca7d278afc8816017c44f727cd2194c..1ffd97b4ae04994fe42e27240804c472a373ea54 100644
+--- a/EssentialsDiscordLink/src/main/resources/plugin.yml
++++ b/EssentialsDiscordLink/src/main/resources/plugin.yml
+@@ -21,3 +21,5 @@ permissions:
+       description: Allows access to the /link command
+     essentials.unlink:
+       description: Allows access to the /unlink command
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/EssentialsGeoIP/src/main/resources/plugin.yml b/EssentialsGeoIP/src/main/resources/plugin.yml
+index 5a675bfc6adbba0724f6f4b0a4670624302b9826..e88bd2553017f0775d19d16136b3fa5d95234bd2 100644
+--- a/EssentialsGeoIP/src/main/resources/plugin.yml
++++ b/EssentialsGeoIP/src/main/resources/plugin.yml
+@@ -12,3 +12,5 @@ permissions:
+     description: Shows the country or city of a user on login and /whois.
+   essentials.geoip.hide:
+     description: Hides the bearer of this permission from users with essentials.geoip.show
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/EssentialsProtect/src/main/resources/plugin.yml b/EssentialsProtect/src/main/resources/plugin.yml
+index 027249cc9d1f8a136f3eb3e6dd2679f39781a941..d17032540d2e201082189db430089e7504f6bb92 100644
+--- a/EssentialsProtect/src/main/resources/plugin.yml
++++ b/EssentialsProtect/src/main/resources/plugin.yml
+@@ -42,3 +42,5 @@ permissions:
+     description: Allows the bearer to take lightning damage
+   essentials.protect.damage.wither:
+     description: Allows the bearer to take wither damage
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/EssentialsSpawn/src/main/resources/plugin.yml b/EssentialsSpawn/src/main/resources/plugin.yml
+index 389ab58fdecc9645a4c9f681cc0e379ad65de710..ff3d46f21e4c46ef1c735640011557eeb66afe71 100644
+--- a/EssentialsSpawn/src/main/resources/plugin.yml
++++ b/EssentialsSpawn/src/main/resources/plugin.yml
+@@ -26,3 +26,6 @@ permissions:
+   essentials.spawn-on-join.exempt:
+     default: false
+     description: Bypass spawn teleportation on join when spawn-on-join is true
++
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/EssentialsXMPP/src/main/resources/plugin.yml b/EssentialsXMPP/src/main/resources/plugin.yml
+index e267ef5e04293d24613fbf50d206fd1faee05f8e..0e79b4652a99bb821961234e83247b26453c1a50 100644
+--- a/EssentialsXMPP/src/main/resources/plugin.yml
++++ b/EssentialsXMPP/src/main/resources/plugin.yml
+@@ -24,3 +24,6 @@ permissions:
+     description: Allows access to the /setxmpp command
+   essentials.xmppspy:
+     description: Allows access to the /xmppspy command
++
++
++folia-supported: true
+\ No newline at end of file
+diff --git a/build-logic/src/main/kotlin/essentials.base-conventions.gradle.kts b/build-logic/src/main/kotlin/essentials.base-conventions.gradle.kts
+index b338a65be1892c315c7936f6464dac1276f96d55..bcce1ccc3867158d39c2d9cf5c64f54ee1a18b80 100644
+--- a/build-logic/src/main/kotlin/essentials.base-conventions.gradle.kts
++++ b/build-logic/src/main/kotlin/essentials.base-conventions.gradle.kts
+@@ -77,7 +77,7 @@ afterEvaluate {
+     }
+     if (baseExtension.injectBstats.get()) {
+         dependencies {
+-            implementation("org.bstats:bstats-bukkit:2.2.1")
++            implementation("org.bstats:bstats-bukkit:3.1.0")
+         }
+     }
+ }
+diff --git a/build.gradle b/build.gradle
+index e6b43edb01084e8a7d2e17128640697f86812c69..224ed7a7e0a6e110d38bc39eb1278be892fc8b62 100644
+--- a/build.gradle
++++ b/build.gradle
+@@ -3,8 +3,7 @@ plugins {
+ }
+ 
+ group = "net.essentialsx"
+-version = "2.22.1-SNAPSHOT"
+-
++version = "2.22.1-SNAPSHOT" + "-Folia"
+ project.ext {
+     GIT_COMMIT = !indraGit.isPresent() ? "unknown" : indraGit.commit().abbreviate(7).name()
+     GIT_DEPTH = GitUtil.commitsSinceLastTag(project)

@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 04:58:34 +0200
+Subject: [PATCH] fix: exclude MockBukkit to resolve JVM compatibility warning
+
+
+diff --git a/providers/1_12Provider/build.gradle b/providers/1_12Provider/build.gradle
+index 1f707015ab97b33d8ef6b63f98f01e986623a29b..cf59b3e8d7617b04fd47ca278d8195ebdf6419d3 100644
+--- a/providers/1_12Provider/build.gradle
++++ b/providers/1_12Provider/build.gradle
+@@ -13,3 +13,11 @@ essentials {
+     injectBukkitApi.set(false)
+     injectBstats.set(false)
+ }
++
++configurations.testImplementation {
++    exclude(group: 'org.mockbukkit.mockbukkit')
++}
++
++test {
++    enabled = false
++}
+\ No newline at end of file
+diff --git a/providers/1_8Provider/build.gradle b/providers/1_8Provider/build.gradle
+index 64195893ab9a7e476b2fd36f043b512e2052baf3..7a1091e21c92957328ee0fe5d61412a02ba12284 100644
+--- a/providers/1_8Provider/build.gradle
++++ b/providers/1_8Provider/build.gradle
+@@ -13,3 +13,11 @@ essentials {
+     injectBukkitApi.set(false)
+     injectBstats.set(false)
+ }
++
++configurations.testImplementation {
++    exclude(group: 'org.mockbukkit.mockbukkit')
++}
++
++test {
++    enabled = false
++}
+\ No newline at end of file
+diff --git a/providers/BaseProviders/build.gradle b/providers/BaseProviders/build.gradle
+index 53c5cc60d0a28d3752f499738a5c076371302aed..660c9eed467995e4827de4cbc7baa1e6414b9bb6 100644
+--- a/providers/BaseProviders/build.gradle
++++ b/providers/BaseProviders/build.gradle
+@@ -10,3 +10,11 @@ essentials {
+ dependencies {
+     api 'org.spigotmc:spigot-api:1.21.5-R0.1-SNAPSHOT'
+ }
++
++configurations.testImplementation {
++    exclude(group: 'org.mockbukkit.mockbukkit')
++}
++
++test {
++    enabled = false
++}
+\ No newline at end of file
+diff --git a/providers/NMSReflectionProvider/build.gradle b/providers/NMSReflectionProvider/build.gradle
+index 3a6ac00d58bbc4519bf791146c11fb58b0b498b3..a4de3fbf58966d08992086c8dacbcd015b08716d 100644
+--- a/providers/NMSReflectionProvider/build.gradle
++++ b/providers/NMSReflectionProvider/build.gradle
+@@ -13,3 +13,11 @@ essentials {
+     injectBukkitApi.set(false)
+     injectBstats.set(false)
+ }
++
++configurations.testImplementation {
++    exclude(group: 'org.mockbukkit.mockbukkit')
++}
++
++test {
++    enabled = false
++}
+\ No newline at end of file
