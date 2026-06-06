@@ -1,0 +1,163 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 05:21:54 +0200
+Subject: [PATCH] Remove PaperLib dependencies
+
+
+diff --git a/Essentials/build.gradle b/Essentials/build.gradle
+index 5134e7daa02cf58a7ce75a3b9e35923f28b22075..c6aeb2136591c8c643669629a8820bacfb72dcda 100644
+--- a/Essentials/build.gradle
++++ b/Essentials/build.gradle
+@@ -8,7 +8,7 @@ dependencies {
+     }
+     compileOnly 'net.luckperms:api:5.3'
+ 
+-    api 'io.papermc:paperlib:1.0.6'
++    //api 'io.papermc:paperlib:1.0.6'
+ 
+     implementation 'org.spongepowered:configurate-yaml:4.2.0'
+     implementation 'org.checkerframework:checker-qual:3.49.0'
+@@ -46,7 +46,7 @@ tasks.register('versionData', VersionDataTask) {
+ 
+ shadowJar {
+     dependencies {
+-        include (dependency('io.papermc:paperlib'))
++        //include (dependency('io.papermc:paperlib'))
+         include (dependency('org.bstats:bstats-bukkit'))
+         include (dependency('org.bstats:bstats-base'))
+         include (dependency('org.spongepowered:configurate-yaml'))
+@@ -88,7 +88,7 @@ shadowJar {
+         include (dependency('io.papermc.adventure:adventure-text-serializer-legacy'))
+         include (dependency('io.papermc.adventure:adventure-text-minimessage'))
+     }
+-    relocate 'io.papermc.lib', 'com.earth2me.essentials.paperlib'
++    //relocate 'io.papermc.lib', 'com.earth2me.essentials.paperlib'
+     relocate 'org.bstats', 'com.earth2me.essentials.libs.bstats'
+     relocate 'org.spongepowered.configurate', 'com.earth2me.essentials.libs.configurate'
+     relocate 'org.yaml.snakeyaml', 'com.earth2me.essentials.libs.snakeyaml'
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/AsyncTeleport.java b/Essentials/src/main/java/com/earth2me/essentials/AsyncTeleport.java
+index b5e687f255720db2191b3c221f5efe176066b55b..592f94cfccf90bbd946dd2c76397c32f0d641692 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/AsyncTeleport.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/AsyncTeleport.java
+@@ -4,7 +4,7 @@ import com.earth2me.essentials.api.IAsyncTeleport;
+ import com.earth2me.essentials.commands.WarpNotFoundException;
+ import com.earth2me.essentials.utils.DateUtil;
+ import com.earth2me.essentials.utils.LocationUtil;
+-import io.papermc.lib.PaperLib;
++//import io.papermc.lib.PaperLib;
+ import net.ess3.api.IEssentials;
+ import net.ess3.api.IUser;
+ import net.ess3.api.TranslatableException;
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
+index 8f8e378900fee190140ea46b03717eece197431f..abd1b8c02078ffeb7564b5c96dc29df6bcb09ca6 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
+@@ -47,7 +47,7 @@ import com.earth2me.essentials.updatecheck.UpdateChecker;
+ import com.earth2me.essentials.userstorage.ModernUserMap;
+ import com.earth2me.essentials.utils.FormatUtil;
+ import com.earth2me.essentials.utils.VersionUtil;
+-import io.papermc.lib.PaperLib;
++//import io.papermc.lib.PaperLib;
+ import net.ess3.api.Economy;
+ import com.earth2me.essentials.config.EssentialsConfiguration;
+ import net.ess3.api.IEssentials;
+@@ -404,7 +404,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
+             }
+ 
+             // Event Providers
+-            if (PaperLib.isPaper()) {
++            if (true) {
+                 try {
+                     Class.forName("com.destroystokyo.paper.event.player.PlayerRecipeBookClickEvent");
+                     recipeBookEventProvider = new PaperRecipeBookListener(event -> {
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
+index 3b8c2f6e3f4f6f490627b0e9f2edcc61279a2395..447e5aa546472dfec2944325269674781bd57fed 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
+@@ -15,7 +15,7 @@ import com.earth2me.essentials.utils.FormatUtil;
+ import com.earth2me.essentials.utils.LocationUtil;
+ import com.earth2me.essentials.utils.MaterialUtil;
+ import com.earth2me.essentials.utils.VersionUtil;
+-import io.papermc.lib.PaperLib;
++//import io.papermc.lib.PaperLib;
+ import io.papermc.paper.ban.BanListType;
+ import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
+ import io.papermc.paper.event.player.PlayerServerFullCheckEvent;
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/ProviderFactory.java b/Essentials/src/main/java/com/earth2me/essentials/ProviderFactory.java
+index 8cf458a740420d3e66d97750bd0b7688f6a916bf..c130a99d11a764041e622cfc055d092d04826b52 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/ProviderFactory.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/ProviderFactory.java
+@@ -1,6 +1,6 @@
+ package com.earth2me.essentials;
+ 
+-import io.papermc.lib.PaperLib;
++//import io.papermc.lib.PaperLib;
+ import net.ess3.provider.Provider;
+ import net.essentialsx.providers.NullableProvider;
+ import net.essentialsx.providers.ProviderData;
+@@ -117,7 +117,7 @@ public class ProviderFactory {
+                 if (paramType.isAssignableFrom(Plugin.class)) {
+                     args[i] = essentials;
+                 } else if (paramType.isAssignableFrom(boolean.class)) {
+-                    args[i] = PaperLib.isPaper();
++                    args[i] = true;
+                 } else {
+                     throw new IllegalArgumentException("Unsupported parameter type " + paramType.getName());
+                 }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java b/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
+index 86513571c412ae8514c4d799f08f4d687bb7b412..40375cc6690fc7f1c9bb284a1f02cbb084090fad 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
+@@ -5,7 +5,7 @@ import com.earth2me.essentials.config.EssentialsConfiguration;
+ import com.earth2me.essentials.config.entities.LazyLocation;
+ import com.earth2me.essentials.utils.LocationUtil;
+ import com.earth2me.essentials.utils.VersionUtil;
+-import io.papermc.lib.PaperLib;
++//import io.papermc.lib.PaperLib;
+ import net.ess3.provider.BiomeKeyProvider;
+ import net.ess3.provider.BiomeNameProvider;
+ import net.ess3.provider.WorldInfoProvider;
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
+index 8dca6262081694cd3fbc7856c3eb4750407cf9eb..37065f98c69c04029824e0f35356880e66fc002f 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
+@@ -5,7 +5,7 @@ import com.earth2me.essentials.Trade;
+ import com.earth2me.essentials.User;
+ import com.earth2me.essentials.adventure.AdventureUtil;
+ import com.earth2me.essentials.utils.StringUtil;
+-import io.papermc.lib.PaperLib;
++//import io.papermc.lib.PaperLib;
+ import net.ess3.api.TranslatableException;
+ import net.ess3.api.events.UserTeleportHomeEvent;
+ import org.bukkit.Location;
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java b/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
+index 1698345ae3d93df137c30cb82f8006fd8227390e..993eba76bef3d0ceb477a4d6f23abc778c33ac97 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
+@@ -4,7 +4,7 @@ import com.google.common.base.Objects;
+ import com.google.common.base.Preconditions;
+ import com.google.common.collect.ImmutableMap;
+ import com.google.common.collect.ImmutableSet;
+-import io.papermc.lib.PaperLib;
++//import io.papermc.lib.PaperLib;
+ import net.ess3.nms.refl.ReflUtil;
+ import org.bukkit.Bukkit;
+ 
+@@ -122,7 +122,7 @@ public final class VersionUtil {
+     }
+ 
+     public static boolean isPaper() {
+-        return PaperLib.isPaper();
++        return true;
+     }
+ 
+     public static BukkitVersion getServerBukkitVersion() {
+@@ -181,7 +181,7 @@ public final class VersionUtil {
+                 return supportStatus = SupportStatus.OUTDATED;
+             }
+ 
+-            return supportStatus = PaperLib.isPaper() ? SupportStatus.FULL : SupportStatus.LIMITED;
++            return supportStatus = true ? SupportStatus.FULL : SupportStatus.LIMITED;
+         }
+         return supportStatus;
+     }

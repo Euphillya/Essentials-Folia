@@ -1,0 +1,174 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 05:41:47 +0200
+Subject: [PATCH] Replace PaperLib Method
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/AsyncTeleport.java b/Essentials/src/main/java/com/earth2me/essentials/AsyncTeleport.java
+index 592f94cfccf90bbd946dd2c76397c32f0d641692..e67476075cb4e86f39c3a440585cde3056cc1f1c 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/AsyncTeleport.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/AsyncTeleport.java
+@@ -134,7 +134,7 @@ public class AsyncTeleport implements IAsyncTeleport {
+ 
+     @Override
+     public void nowUnsafe(Location loc, TeleportCause cause, CompletableFuture<Boolean> future) {
+-        final CompletableFuture<Boolean> paperFuture = PaperLib.teleportAsync(teleportOwner.getBase(), loc, cause);
++        final CompletableFuture<Boolean> paperFuture = teleportOwner.getBase().teleportAsync(loc, cause);
+         paperFuture.thenAccept(future::complete);
+         paperFuture.exceptionally(future::completeExceptionally);
+     }
+@@ -185,17 +185,17 @@ public class AsyncTeleport implements IAsyncTeleport {
+             targetLoc.setX(LocationUtil.getXInsideWorldBorder(targetLoc.getWorld(), targetLoc.getBlockX()));
+             targetLoc.setZ(LocationUtil.getZInsideWorldBorder(targetLoc.getWorld(), targetLoc.getBlockZ()));
+         }
+-        PaperLib.getChunkAtAsync(targetLoc.getWorld(), targetLoc.getBlockX() >> 4, targetLoc.getBlockZ() >> 4, true, true).thenAccept(chunk -> {
++        targetLoc.getWorld().getChunkAtAsync(targetLoc.getBlockX() >> 4, targetLoc.getBlockZ() >> 4, true, true).thenAccept(chunk -> {
+             Location loc = targetLoc;
+             if (LocationUtil.isBlockUnsafeForUser(ess, teleportee, chunk.getWorld(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ())) {
+                 if (ess.getSettings().isTeleportSafetyEnabled()) {
+                     if (ess.getSettings().isForceDisableTeleportSafety()) {
+                         //The chunk we're teleporting to is 100% going to be loaded here, no need to teleport async.
+-                        teleportee.getBase().teleport(loc, cause);
++                        teleportee.getBase().teleportAsync(loc, cause);
+                     } else {
+                         try {
+                             //There's a chance the safer location is outside the loaded chunk so still teleport async here.
+-                            PaperLib.teleportAsync(teleportee.getBase(), LocationUtil.getSafeDestination(ess, teleportee, loc), cause);
++                            teleportee.getBase().teleportAsync(LocationUtil.getSafeDestination(ess, teleportee, loc), cause);
+                         } catch (final Exception e) {
+                             future.completeExceptionally(e);
+                             return;
+@@ -208,13 +208,13 @@ public class AsyncTeleport implements IAsyncTeleport {
+             } else {
+                 if (ess.getSettings().isForceDisableTeleportSafety()) {
+                     //The chunk we're teleporting to is 100% going to be loaded here, no need to teleport async.
+-                    teleportee.getBase().teleport(loc, cause);
++                    teleportee.getBase().teleportAsync(loc, cause);
+                 } else {
+                     if (ess.getSettings().isTeleportToCenterLocation()) {
+                         loc = LocationUtil.getRoundedDestination(loc);
+                     }
+                     //There's a *small* chance the rounded destination produces a location outside the loaded chunk so still teleport async here.
+-                    PaperLib.teleportAsync(teleportee.getBase(), loc, cause);
++                    teleportee.getBase().teleportAsync(loc, cause);
+                 }
+             }
+             future.complete(true);
+@@ -394,9 +394,13 @@ public class AsyncTeleport implements IAsyncTeleport {
+ 
+     void respawnNow(final IUser teleportee, final TeleportCause cause, final CompletableFuture<Boolean> future) {
+         final Player player = teleportee.getBase();
+-        PaperLib.getBedSpawnLocationAsync(player, true).thenAccept(location -> {
++        Location bedLocation = player.getRespawnLocation(false);
++        if (bedLocation == null || bedLocation.getWorld() == null) {
++            return;
++        }
++        bedLocation.getWorld().getChunkAtAsync(bedLocation.getBlockX() >> 4, bedLocation.getBlockZ() >> 4, false, true).thenAccept(location -> {
+             if (location != null) {
+-                nowAsync(teleportee, new LocationTarget(location), cause, future);
++                nowAsync(teleportee, new LocationTarget(bedLocation), cause, future);
+             } else {
+                 if (ess.getSettings().isDebug()) {
+                     ess.getLogger().info("Could not find bed spawn, forcing respawn event.");
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
+index 447e5aa546472dfec2944325269674781bd57fed..5e1adf19960211405256dda0133e3322d2ea092d 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
+@@ -622,9 +622,14 @@ public class EssentialsPlayerListener implements Listener {
+ 
+         final Location loc = user.getHome(user.getLocation());
+         if (loc == null) {
+-            PaperLib.getBedSpawnLocationAsync(user.getBase(), false).thenAccept(location -> {
++            Player bukkitPlayer = user.getBase();
++            Location bedLocation = bukkitPlayer.getRespawnLocation();
++            if (bedLocation == null || bedLocation.getWorld() == null) {
++                return;
++            }
++            bedLocation.getWorld().getChunkAtAsync(bedLocation.getBlockX() >> 4, bedLocation.getBlockZ() >> 4, false, false).thenAccept(location -> {
+                 if (location != null) {
+-                    user.getBase().setCompassTarget(location);
++                    user.getBase().setCompassTarget(bedLocation);
+                 }
+             });
+             return;
+@@ -1026,7 +1031,7 @@ public class EssentialsPlayerListener implements Listener {
+                     while (LocationUtil.isBlockDamaging(loc.getWorld(), loc.getBlockX(), loc.getBlockY() - 1, loc.getBlockZ())) {
+                         loc.setY(loc.getY() + 1d);
+                     }
+-                    PaperLib.teleportAsync(user.getBase(), loc, TeleportCause.PLUGIN);
++                    user.getBase().teleportAsync(loc, TeleportCause.PLUGIN);
+                 }
+             }
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java b/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
+index 40375cc6690fc7f1c9bb284a1f02cbb084090fad..4a160114d08e4487534bf22a729e91d8209ccd94 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
+@@ -214,7 +214,7 @@ public class RandomTeleport implements IConf {
+             360 * RANDOM.nextFloat() - 180,
+             0
+         );
+-        PaperLib.getChunkAtAsync(location).thenAccept(chunk -> {
++        location.getWorld().getChunkAtAsync(location.getBlockX() >> 4, location.getBlockZ() >> 4).thenAccept(chunk -> {
+             if (World.Environment.NETHER.equals(center.getWorld().getEnvironment())) {
+                 location.setY(getNetherYAt(location));
+             } else {
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
+index 37065f98c69c04029824e0f35356880e66fc002f..b4b6e11be53baeb85069c5f9bfd7b80a1332c675 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
+@@ -10,6 +10,7 @@ import net.ess3.api.TranslatableException;
+ import net.ess3.api.events.UserTeleportHomeEvent;
+ import org.bukkit.Location;
+ import org.bukkit.Server;
++import org.bukkit.entity.Player;
+ import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+ 
+ import java.util.Collections;
+@@ -48,10 +49,15 @@ public class Commandhome extends EssentialsCommand {
+                 if (!player.getBase().isOnline() || player.getBase() instanceof OfflinePlayerStub) {
+                     throw new TranslatableException("bedOffline");
+                 }
+-                PaperLib.getBedSpawnLocationAsync(player.getBase(), true).thenAccept(location -> {
++                Player bukkitPlayer = player.getBase();
++                Location bedLocation = bukkitPlayer.getRespawnLocation(false);
++                if (bedLocation == null || bedLocation.getWorld() == null) {
++                    return;
++                }
++                bedLocation.getWorld().getChunkAtAsync(bedLocation.getBlockX() >> 4, bedLocation.getBlockZ() >> 4, false, true).thenAccept(location -> {
+                     final CompletableFuture<Boolean> future = getNewExceptionFuture(user.getSource(), commandLabel);
+                     if (location != null) {
+-                        final UserTeleportHomeEvent event = new UserTeleportHomeEvent(user, "bed", location, UserTeleportHomeEvent.HomeType.BED);
++                        final UserTeleportHomeEvent event = new UserTeleportHomeEvent(user, "bed", bedLocation, UserTeleportHomeEvent.HomeType.BED);
+                         server.getPluginManager().callEvent(event);
+                         if (event.isCancelled()) {
+                             return;
+@@ -61,7 +67,7 @@ public class Commandhome extends EssentialsCommand {
+                                 user.sendTl("teleportHome", "bed");
+                             }
+                         });
+-                        user.getAsyncTeleport().teleport(location, charge, TeleportCause.COMMAND, future);
++                        user.getAsyncTeleport().teleport(bedLocation, charge, TeleportCause.COMMAND, future);
+                     } else {
+                         showError(user.getBase(), new TranslatableException("bedMissing"), commandLabel);
+                     }
+@@ -113,7 +119,18 @@ public class Commandhome extends EssentialsCommand {
+                 message.complete(null);
+                 return;
+             }
+-            PaperLib.getBedSpawnLocationAsync(player.getBase(), true).thenAccept(message::complete);
++            Player bukkitPlayer = player.getBase();
++            Location bedLocation = bukkitPlayer.getRespawnLocation();
++            if (bedLocation == null || bedLocation.getWorld() == null) {
++                return;
++            }
++            bedLocation.getWorld().getChunkAtAsync(bedLocation.getBlockX() >> 4, bedLocation.getBlockZ() >> 4, false, true).thenAccept(location -> {
++                if (location != null) {
++                    message.complete(bedLocation);
++                } else {
++                    message.complete(null);
++                }
++            });
+         }
+         throw new NoChargeException();
+     }

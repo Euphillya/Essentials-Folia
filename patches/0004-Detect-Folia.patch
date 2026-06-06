@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 05:25:10 +0200
+Subject: [PATCH] Detect Folia
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java b/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
+index 993eba76bef3d0ceb477a4d6f23abc778c33ac97..c5076e658126992f8e88ee45bbcf676449de75d8 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
+@@ -75,6 +75,7 @@ public final class VersionUtil {
+ 
+     private static final Map<String, SupportStatus> unsupportedServerClasses;
+     private static final String PFX = make("8(;4>`");
++    private static boolean FOLIA_SERVER = false;
+ 
+     static {
+         final ImmutableMap.Builder<String, SupportStatus> builder = new ImmutableMap.Builder<>();
+@@ -111,6 +112,11 @@ public final class VersionUtil {
+         }
+ 
+         unsupportedServerClasses = builder.build();
++
++        try {
++            FOLIA_SERVER = Class.forName("io.papermc.paper.threadedregions.RegionizedServer") != null;
++        } catch (ClassNotFoundException ignored) {
++        }
+     }
+ 
+     private static BukkitVersion serverVersion = null;
+@@ -125,6 +131,10 @@ public final class VersionUtil {
+         return true;
+     }
+ 
++    public static boolean isFoliaServer() {
++        return FOLIA_SERVER;
++    }
++
+     public static BukkitVersion getServerBukkitVersion() {
+         if (serverVersion == null) {
+             serverVersion = BukkitVersion.fromString(Bukkit.getServer().getBukkitVersion());
