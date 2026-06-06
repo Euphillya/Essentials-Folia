@@ -33,7 +33,9 @@ jobs:
           git config --global user.name "Action Github"
 
       - name: Apply patches
-        run: ./gradlew applyPatches
+        run: |
+          chmod +x gradlew 
+          ./gradlew applyPatches
 
       - name: Build
         run: ./gradlew -p Essentials-Patched build --stacktrace -x test -x checkstyleMain --refresh-dependencies --continue
