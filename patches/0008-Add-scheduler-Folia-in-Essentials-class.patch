@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 05:51:05 +0200
+Subject: [PATCH] Add scheduler Folia in Essentials class
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
+index abd1b8c02078ffeb7564b5c96dc29df6bcb09ca6..fecd50fa9be109707ed249a8a66df9f7479c5dec 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
+@@ -1234,34 +1234,60 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
+ 
+     @Override
+     public BukkitTask runTaskAsynchronously(final Runnable run) {
++        if (VersionUtil.isFoliaServer()) throw new UnsupportedOperationException("Asynchronous BukkitTask are not supported on Folia");
+         return this.getScheduler().runTaskAsynchronously(this, run);
+     }
+ 
+     @Override
+     public BukkitTask runTaskLaterAsynchronously(final Runnable run, final long delay) {
++        if (VersionUtil.isFoliaServer()) throw new UnsupportedOperationException("Asynchronous BukkitTask are not supported on Folia");
+         return this.getScheduler().runTaskLaterAsynchronously(this, run, delay);
+     }
+ 
+     @Override
+     public BukkitTask runTaskTimerAsynchronously(final Runnable run, final long delay, final long period) {
++        if (VersionUtil.isFoliaServer()) throw new UnsupportedOperationException("Asynchronous BukkitTask are not supported on Folia");
+         return this.getScheduler().runTaskTimerAsynchronously(this, run, delay, period);
+     }
+ 
+     @Override
+     public int scheduleSyncDelayedTask(final Runnable run) {
++        if (VersionUtil.isFoliaServer()) throw new UnsupportedOperationException("scheduleSyncDelayedTask(Runnable) is not supported on Folia");
+         return this.getScheduler().scheduleSyncDelayedTask(this, run);
+     }
+ 
+     @Override
+     public int scheduleSyncDelayedTask(final Runnable run, final long delay) {
++        if (VersionUtil.isFoliaServer()) throw new UnsupportedOperationException("scheduleSyncDelayedTask(Runnable, long) is not supported on Folia");
+         return this.getScheduler().scheduleSyncDelayedTask(this, run, delay);
+     }
+ 
+     @Override
+     public int scheduleSyncRepeatingTask(final Runnable run, final long delay, final long period) {
++        if (VersionUtil.isFoliaServer()) throw new UnsupportedOperationException("scheduleSyncRepeatingTask(Runnable, long, long) is not supported on Folia");
+         return this.getScheduler().scheduleSyncRepeatingTask(this, run, delay, period);
+     }
+ 
++    @Override
++    public io.papermc.paper.threadedregions.scheduler.AsyncScheduler getAsyncScheduler() {
++        return this.getServer().getAsyncScheduler();
++    }
++
++    @Override
++    public io.papermc.paper.threadedregions.scheduler.RegionScheduler getRegionScheduler() {
++        return this.getServer().getRegionScheduler();
++    }
++
++    @Override
++    public io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler getGlobalRegionScheduler() {
++        return this.getServer().getGlobalRegionScheduler();
++    }
++
++    @Override
++    public io.papermc.paper.threadedregions.scheduler.EntityScheduler getEntityScheduler(final org.bukkit.entity.Entity entity) {
++        return entity.getScheduler();
++    }
++
+     @Override
+     public PermissionsHandler getPermissionsHandler() {
+         return permissionsHandler;
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/IEssentials.java b/Essentials/src/main/java/com/earth2me/essentials/IEssentials.java
+index 48a2aa2b130c695db37f4f96fab8b1370bb35d7e..9b3b344fe10567a3f4c3c9df42be81da0f6b633c 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/IEssentials.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/IEssentials.java
+@@ -110,6 +110,14 @@ public interface IEssentials extends Plugin {
+ 
+     int scheduleSyncRepeatingTask(Runnable run, long delay, long period);
+ 
++    io.papermc.paper.threadedregions.scheduler.AsyncScheduler getAsyncScheduler();
++
++    io.papermc.paper.threadedregions.scheduler.RegionScheduler getRegionScheduler();
++
++    io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler getGlobalRegionScheduler();
++
++    io.papermc.paper.threadedregions.scheduler.EntityScheduler getEntityScheduler(final org.bukkit.entity.Entity entity);
++
+     PermissionsHandler getPermissionsHandler();
+ 
+     AlternativeCommandsHandler getAlternativeCommandsHandler();

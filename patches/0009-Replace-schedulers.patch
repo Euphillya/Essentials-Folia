@@ -1,0 +1,1206 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 06:33:34 +0200
+Subject: [PATCH] Replace schedulers
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/AsyncTimedTeleport.java b/Essentials/src/main/java/com/earth2me/essentials/AsyncTimedTeleport.java
+index d1c37423c06b7c20c74d6c3567af4a75d62c404b..24deb5015eea28ca7fbbdadfd4e41edaeec9309a 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/AsyncTimedTeleport.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/AsyncTimedTeleport.java
+@@ -31,7 +31,7 @@ public class AsyncTimedTeleport implements Runnable {
+     private final boolean timer_canMove;
+     private final Trade timer_chargeFor;
+     private final TeleportCause timer_cause;
+-    private int timer_task;
++    private io.papermc.paper.threadedregions.scheduler.ScheduledTask timer_task;
+     private double timer_health;
+ 
+     AsyncTimedTeleport(final IUser user, final IEssentials ess, final AsyncTeleport teleport, final long delay, final IUser teleportUser, final ITarget target, final Trade chargeFor, final TeleportCause cause, final boolean respawn) {
+@@ -55,7 +55,7 @@ public class AsyncTimedTeleport implements Runnable {
+         this.timer_respawn = respawn;
+         this.timer_canMove = user.isAuthorized("essentials.teleport.timer.move");
+ 
+-        timer_task = ess.runTaskTimerAsynchronously(this, 20, 20).getTaskId();
++        timer_task = ess.getAsyncScheduler().runAtFixedRate(ess, scheduledTask -> this.run(), 20*50, 20*50, java.util.concurrent.TimeUnit.MILLISECONDS);
+ 
+         if (future != null) {
+             this.parentFuture = future;
+@@ -142,16 +142,16 @@ public class AsyncTimedTeleport implements Runnable {
+             }
+         }
+ 
+-        ess.scheduleSyncDelayedTask(new DelayedTeleportTask());
++        ess.getEntityScheduler(teleportUser.getBase()).run(ess, scheduledTask -> new DelayedTeleportTask().run(), null);
+     }
+ 
+     //If we need to cancelTimer a pending teleportPlayer call this method
+     void cancelTimer(final boolean notifyUser) {
+-        if (timer_task == -1) {
++        if (timer_task == null) {
+             return;
+         }
+         try {
+-            ess.getServer().getScheduler().cancelTask(timer_task);
++            timer_task.cancel();
+ 
+             final IUser teleportUser = ess.getUser(this.timer_teleportee);
+             if (teleportUser != null && teleportUser.getBase() != null) {
+@@ -167,7 +167,7 @@ public class AsyncTimedTeleport implements Runnable {
+                 }
+             }
+         } finally {
+-            timer_task = -1;
++            timer_task = null;
+         }
+     }
+ }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/Backup.java b/Essentials/src/main/java/com/earth2me/essentials/Backup.java
+index a6831ab3bb1d5ab9aa0086b41ba29134815df1d7..23f8fef3a85c60ffeddceae3bae385db42d1104c 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/Backup.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/Backup.java
+@@ -18,7 +18,7 @@ public class Backup implements Runnable {
+     private transient final IEssentials ess;
+     private final AtomicBoolean pendingShutdown = new AtomicBoolean(false);
+     private transient boolean running = false;
+-    private transient int taskId = -1;
++    private transient io.papermc.paper.threadedregions.scheduler.ScheduledTask taskId;
+     private transient boolean active = false;
+     private transient CompletableFuture<Object> taskLock = null;
+ 
+@@ -26,7 +26,7 @@ public class Backup implements Runnable {
+         this.ess = ess;
+         server = ess.getServer();
+         if (!ess.getOnlinePlayers().isEmpty() || ess.getSettings().isAlwaysRunBackup()) {
+-            ess.runTaskAsynchronously(this::startTask);
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> startTask());
+         }
+     }
+ 
+@@ -36,10 +36,10 @@ public class Backup implements Runnable {
+ 
+     public synchronized void stopTask() {
+         running = false;
+-        if (taskId != -1) {
+-            server.getScheduler().cancelTask(taskId);
++        if (taskId != null) {
++            taskId.cancel();
+         }
+-        taskId = -1;
++        taskId = null;
+     }
+ 
+     private synchronized void startTask() {
+@@ -48,7 +48,7 @@ public class Backup implements Runnable {
+             if (interval < 1200) {
+                 return;
+             }
+-            taskId = ess.scheduleSyncRepeatingTask(this, interval, interval);
++            taskId = ess.getGlobalRegionScheduler().runAtFixedRate(ess, scheduledTask -> this.run(), interval, interval);
+             running = true;
+         }
+     }
+@@ -74,23 +74,23 @@ public class Backup implements Runnable {
+         taskLock = new CompletableFuture<>();
+         if ("save-all".equalsIgnoreCase(command)) {
+             final CommandSender cs = server.getConsoleSender();
+-            server.dispatchCommand(cs, "save-all");
++            ess.getGlobalRegionScheduler().execute(ess, () -> server.dispatchCommand(cs, "save-all"));
+             active = false;
+             taskLock.complete(new Object());
+             return;
+         }
+         ess.getLogger().log(Level.INFO, ess.getAdventureFacet().miniToLegacy(tlLiteral("backupStarted")));
+-        final CommandSender cs = server.getConsoleSender();
++        final CommandSender cs = server.getConsoleSender();ess.getGlobalRegionScheduler().execute(ess, () -> {
+         server.dispatchCommand(cs, "save-all");
+         server.dispatchCommand(cs, "save-off");
+ 
+-        ess.runTaskAsynchronously(() -> {
++        });ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+             try {
+                 final ProcessBuilder childBuilder = new ProcessBuilder(command.split(" "));
+                 childBuilder.redirectErrorStream(true);
+                 childBuilder.directory(ess.getDataFolder().getParentFile().getParentFile());
+                 final Process child = childBuilder.start();
+-                ess.runTaskAsynchronously(() -> {
++                ess.getAsyncScheduler().runNow(ess, scheduledTask2 -> {
+                     try {
+                         try (final BufferedReader reader = new BufferedReader(new InputStreamReader(child.getInputStream()))) {
+                             String line;
+@@ -123,7 +123,7 @@ public class Backup implements Runnable {
+                 }
+ 
+                 if (!pendingShutdown.get()) {
+-                    ess.scheduleSyncDelayedTask(new BackupEnableSaveTask());
++                    ess.getGlobalRegionScheduler().execute(ess, new BackupEnableSaveTask());
+                 }
+             }
+         });
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/BalanceTopImpl.java b/Essentials/src/main/java/com/earth2me/essentials/BalanceTopImpl.java
+index 2dddd71260381520356aabd3a56afbe8c8e1aa20..7dc83ca3ff9f7dc2ea5eb6c6446bbe389b7b5dad 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/BalanceTopImpl.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/BalanceTopImpl.java
+@@ -72,7 +72,7 @@ public class BalanceTopImpl implements BalanceTop {
+             return cacheLock;
+         }
+         cacheLock = new CompletableFuture<>();
+-        ess.runTaskAsynchronously(this::calculateBalanceTopMap);
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> calculateBalanceTopMap());
+         return cacheLock;
+     }
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
+index fecd50fa9be109707ed249a8a66df9f7479c5dec..fe3e83de46204eb42b63ead0d29d574d0b6f8631 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
+@@ -430,7 +430,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
+             alternativeCommandsHandler = new AlternativeCommandsHandler(this);
+ 
+             timer = new EssentialsTimer(this);
+-            scheduleSyncRepeatingTask(timer, 1000, 50);
++            getGlobalRegionScheduler().runAtFixedRate(this, scheduledTask -> timer.run(), 1000, 50);
+ 
+             Economy.setEss(this);
+             execTimer.mark("RegHandler");
+@@ -441,7 +441,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
+ 
+             if (!TESTING) {
+                 updateChecker = new UpdateChecker(this);
+-                runTaskAsynchronously(() -> {
++                getAsyncScheduler().runNow(this, scheduledTask -> {
+                     getLogger().log(Level.INFO, getAdventureFacet().miniToLegacy(tlLiteral("versionFetching")));
+                     for (final ComponentHolder component : updateChecker.getVersionMessages(false, true, new CommandSource(this, Bukkit.getConsoleSender()))) {
+                         getLogger().log(getSettings().isUpdateCheckEnabled() ? Level.WARNING : Level.INFO, getAdventureFacet().adventureToLegacy(component));
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsBlockListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsBlockListener.java
+index 2890bc2a79e000bf919780cb5476ab962bc3d96a..d9886fffe3ff2366f2e9f69b9322935099c501ce 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsBlockListener.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsBlockListener.java
+@@ -44,14 +44,14 @@ public class EssentialsBlockListener implements Listener {
+ 
+         final User user = ess.getUser(event.getPlayer());
+         if (user.hasUnlimited(is) && user.getBase().getGameMode() == GameMode.SURVIVAL) {
+-            ess.scheduleSyncDelayedTask(() -> {
++            ess.getEntityScheduler(user.getBase()).run(ess, scheduledTask -> {
+                 if (is != null && is.getType() != null && !MaterialUtil.isAir(is.getType())) {
+                     final ItemStack cloneIs = is.clone();
+                     cloneIs.setAmount(1);
+                     Inventories.addItem(user.getBase(), cloneIs);
+                     user.getBase().updateInventory();
+                 }
+-            });
++            }, null);
+         }
+     }
+ }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsEntityListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsEntityListener.java
+index 1d1fbff1eec066e7fa1b6b80fee4b09a118d8ffc..ac72113f91004fb20fb4740398907878d165c132 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsEntityListener.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsEntityListener.java
+@@ -110,7 +110,7 @@ public class EssentialsEntityListener implements Listener {
+                         }
+                     }
+ 
+-                    ess.scheduleSyncDelayedTask(new PowerToolInteractTask());
++                    ess.getEntityScheduler(attacker.getBase()).run(ess, scheduledTask -> new PowerToolInteractTask().run(), null);
+ 
+                     event.setCancelled(true);
+                     return;
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
+index 5e1adf19960211405256dda0133e3322d2ea092d..0048a77b342f0ea29a26218e493ff2ee5110553b 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
+@@ -94,7 +94,7 @@ import static com.earth2me.essentials.I18n.tlLiteral;
+ 
+ public class EssentialsPlayerListener implements Listener {
+     private final transient IEssentials ess;
+-    private final ConcurrentHashMap<UUID, Integer> pendingMotdTasks = new ConcurrentHashMap<>();
++    private final ConcurrentHashMap<UUID, io.papermc.paper.threadedregions.scheduler.ScheduledTask> pendingMotdTasks = new ConcurrentHashMap<>();
+ 
+     public EssentialsPlayerListener(final IEssentials parent) {
+         this.ess = parent;
+@@ -289,9 +289,9 @@ public class EssentialsPlayerListener implements Listener {
+     public void onPlayerQuit(final PlayerQuitEvent event) {
+         final User user = ess.getUser(event.getPlayer());
+ 
+-        final Integer pendingId = pendingMotdTasks.remove(user.getUUID());
++        final io.papermc.paper.threadedregions.scheduler.ScheduledTask pendingId = pendingMotdTasks.remove(user.getUUID());
+         if (pendingId != null) {
+-            ess.getScheduler().cancelTask(pendingId);
++            pendingId.cancel();
+         }
+ 
+         if (hideJoinQuitMessages() || ess.getSettings().allowSilentJoinQuit() && user.isAuthorized("essentials.silentquit")) {
+@@ -408,7 +408,7 @@ public class EssentialsPlayerListener implements Listener {
+ 
+     private void legacyJoinFlow(final PlayerJoinEvent event) {
+         final String joinMessage = event.getJoinMessage();
+-        ess.runTaskAsynchronously(() -> delayedJoin(event.getPlayer(), joinMessage));
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> delayedJoin(event.getPlayer(), joinMessage));
+ 
+         if (hideJoinQuitMessages() || ess.getSettings().allowSilentJoinQuit() || ess.getSettings().isCustomJoinMessage()) {
+             event.setJoinMessage(null);
+@@ -478,13 +478,18 @@ public class EssentialsPlayerListener implements Listener {
+             joinMessageConsumer.accept(effectiveMessage);
+         }
+ 
+-        ess.runTaskAsynchronously(() -> ess.getServer().getPluginManager().callEvent(new AsyncUserDataLoadEvent(user, effectiveMessage)));
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> ess.getServer().getPluginManager().callEvent(new AsyncUserDataLoadEvent(user, effectiveMessage)));
+ 
+         if (ess.getSettings().getMotdDelay() >= 0) {
+             final int motdDelay = ess.getSettings().getMotdDelay() / 50;
+             final Runnable motdTask = () -> motdFlow(user);
+             if (motdDelay > 0) {
+-                pendingMotdTasks.put(user.getUUID(), ess.scheduleSyncDelayedTask(motdTask, motdDelay));
++                io.papermc.paper.threadedregions.scheduler.ScheduledTask task = ess.getEntityScheduler(user.getBase()).runDelayed(ess, scheduledTask -> motdTask.run(), null, motdDelay);
++                if (task == null) {
++                    motdTask.run();
++                    return;
++                }
++                pendingMotdTasks.put(user.getUUID(), task);
+             } else {
+                 motdTask.run();
+             }
+@@ -501,7 +506,7 @@ public class EssentialsPlayerListener implements Listener {
+         }
+ 
+         if (user.isAuthorized("essentials.updatecheck")) {
+-            ess.runTaskAsynchronously(() -> {
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+                 for (final ComponentHolder component : ess.getUpdateChecker().getVersionMessages(false, false, user.getSource())) {
+                     user.sendComponent(component);
+                 }
+@@ -600,7 +605,7 @@ public class EssentialsPlayerListener implements Listener {
+         dUser.updateActivity(false, AfkStatusChangeEvent.Cause.JOIN);
+         dUser.stopTransaction();
+ 
+-        ess.scheduleSyncDelayedTask(() -> {
++        ess.getEntityScheduler(player).run(ess, scheduledTask -> {
+             final User user = ess.getUser(player);
+ 
+             if (!user.getBase().isOnline()) {
+@@ -612,7 +617,7 @@ public class EssentialsPlayerListener implements Listener {
+                     ess.getServer().broadcastMessage(msg);
+                 }
+             });
+-        });
++        }, null);
+     }
+ 
+     // Makes the compass item ingame always point to the first essentials home.  #EasterEgg
+@@ -775,7 +780,7 @@ public class EssentialsPlayerListener implements Listener {
+         final User user = ess.getUser(event.getPlayer());
+         if (user.hasUnlimited(new ItemStack(event.getBucket()))) {
+             event.getItemStack().setType(event.getBucket());
+-            ess.scheduleSyncDelayedTask(user.getBase()::updateInventory);
++            ess.getEntityScheduler(user.getBase()).run(ess, scheduledTask -> user.getBase().updateInventory(), null);
+         }
+     }
+ 
+@@ -1035,7 +1040,7 @@ public class EssentialsPlayerListener implements Listener {
+                 }
+             }
+ 
+-            ess.scheduleSyncDelayedTask(new DelayedClickJumpTask());
++            ess.getEntityScheduler(user.getBase()).run(ess, scheduledTask -> new DelayedClickJumpTask().run(), null);
+         } catch (final Exception ex) {
+             if (ess.getSettings().isDebug()) {
+                 ess.getLogger().log(Level.WARNING, ex.getMessage(), ex);
+@@ -1066,7 +1071,7 @@ public class EssentialsPlayerListener implements Listener {
+                     }
+                 }
+ 
+-                ess.scheduleSyncDelayedTask(new PowerToolUseTask());
++                ess.getEntityScheduler(user.getBase()).run(ess, scheduledTask -> new PowerToolUseTask().run(), null);
+ 
+             }
+         }
+@@ -1128,7 +1133,8 @@ public class EssentialsPlayerListener implements Listener {
+         }
+ 
+         if (refreshPlayer != null) {
+-            ess.scheduleSyncDelayedTask(refreshPlayer::updateInventory, 1);
++            final Player frp = refreshPlayer;
++            ess.getEntityScheduler(frp).run(ess, scheduledTask -> frp.updateInventory(), null);
+         }
+     }
+ 
+@@ -1191,7 +1197,8 @@ public class EssentialsPlayerListener implements Listener {
+         }
+ 
+         if (refreshPlayer != null) {
+-            ess.scheduleSyncDelayedTask(refreshPlayer::updateInventory, 1);
++            final Player frp = refreshPlayer;
++            ess.getEntityScheduler(frp).run(ess, scheduledTask -> frp.updateInventory(), null);
+         }
+     }
+ 
+@@ -1219,10 +1226,10 @@ public class EssentialsPlayerListener implements Listener {
+         final Player player = event.getPlayer();
+         if (player.isFlying() && player.getAllowFlight() && user.isAuthorized("essentials.fly")) {
+             // The gamemode change happens after the event, so we need to delay the flight enable
+-            ess.scheduleSyncDelayedTask(() -> {
++            ess.getEntityScheduler(player).runDelayed(ess, scheduledTask -> {
+                 player.setAllowFlight(true);
+                 player.setFlying(true);
+-            }, 1);
++            }, null, 1L);
+         }
+     }
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java b/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
+index 4a160114d08e4487534bf22a729e91d8209ccd94..489e989f14d85afba6421266549dac497fc7e053 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
+@@ -156,9 +156,12 @@ public class RandomTeleport implements IConf {
+ 
+     // Prompts caching random valid locations, up to a maximum number of attempts.
+     public void cacheRandomLocations(final String name) {
+-        ess.getServer().getScheduler().scheduleSyncDelayedTask(ess, () -> {
++        final Location center = getCenter(name);
++        final double minRange = getMinRange(name);
++        final double maxRange = getMaxRange(name);
++        ess.getRegionScheduler().run(ess, center, scheduledTask -> {
+             for (int i = 0; i < this.getFindAttempts(); ++i) {
+-                calculateRandomLocation(getCenter(name), getMinRange(name), getMaxRange(name)).thenAccept(location -> {
++                calculateRandomLocation(center, minRange, maxRange).thenAccept(location -> {
+                     if (isValidRandomLocation(location)) {
+                         this.getCachedLocations(name).add(location);
+                     }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/Settings.java b/Essentials/src/main/java/com/earth2me/essentials/Settings.java
+index fbec7ea904a31d14d21345dd78ea8e6818b9ce9a..022c721616249a1d366799697e678a36549eeaa4 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/Settings.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/Settings.java
+@@ -847,7 +847,7 @@ public class Settings implements net.ess3.api.ISettings {
+             if (reloadCount.get() < 2) {
+                 // on startup: add plugins again in case they registered commands with the new API
+                 // we need to schedule this task before any of the below tasks using _addAlternativeCommand.
+-                ess.scheduleSyncDelayedTask(() -> {
++                ess.getGlobalRegionScheduler().execute(ess, () -> {
+                     for (final Plugin plugin : ess.getServer().getPluginManager().getPlugins()) {
+                         if (plugin.isEnabled()) {
+                             ess.getAlternativeCommandsHandler().addPlugin(plugin);
+@@ -873,7 +873,7 @@ public class Settings implements net.ess3.api.ISettings {
+ 
+                     // This is 2 because Settings are reloaded twice in the startup lifecycle
+                     if (reloadCount.get() < 2) {
+-                        ess.scheduleSyncDelayedTask(() -> _addAlternativeCommand(effectiveAlias, toDisable));
++                        ess.getGlobalRegionScheduler().execute(ess, () -> _addAlternativeCommand(effectiveAlias, toDisable));
+                     } else {
+                         _addAlternativeCommand(effectiveAlias, toDisable);
+                     }
+@@ -888,7 +888,7 @@ public class Settings implements net.ess3.api.ISettings {
+                     ess.getLogger().log(Level.INFO, "Syncing commands");
+                 }
+                 if (reloadCount.get() < 2) {
+-                    ess.scheduleSyncDelayedTask(syncCommandsProvider::syncCommands);
++                    ess.getGlobalRegionScheduler().execute(ess, syncCommandsProvider::syncCommands);
+                 } else {
+                     syncCommandsProvider.syncCommands();
+                 }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/User.java b/Essentials/src/main/java/com/earth2me/essentials/User.java
+index 4dd7d9b4e42770e30c3a3716d7e920de09b5c05c..203d8db6573569c1b9c363eb69fb8e88284ce789 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/User.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/User.java
+@@ -362,7 +362,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
+     }
+ 
+     public void dispose() {
+-        ess.runTaskAsynchronously(this::_dispose);
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> _dispose());
+     }
+ 
+     private void _dispose() {
+@@ -861,7 +861,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
+     public void updateActivityOnChat(final boolean broadcast) {
+         if (ess.getSettings().cancelAfkOnChat()) {
+             //Chat happens async, make sure we have a sync context
+-            ess.scheduleSyncDelayedTask(() -> updateActivity(broadcast, AfkStatusChangeEvent.Cause.CHAT));
++            ess.getEntityScheduler(base).run(ess, scheduledTask -> updateActivity(broadcast, AfkStatusChangeEvent.Cause.CHAT), null);
+         }
+     }
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandbalancetop.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandbalancetop.java
+index e11f8a17abfe126de7cac9427522323cf7fa3b3f..bf979f98137d8457d5012a2ac72340254f504527 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandbalancetop.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandbalancetop.java
+@@ -44,7 +44,7 @@ public class Commandbalancetop extends EssentialsCommand {
+             new TextPager(cache).showPage(Integer.toString(page), null, "balancetop", sender);
+         };
+         if (sender.getSender() instanceof BlockCommandSender) {
+-            ess.scheduleSyncDelayedTask(runnable);
++            ess.getGlobalRegionScheduler().execute(ess, runnable);
+         } else {
+             runnable.run();
+         }
+@@ -74,7 +74,9 @@ public class Commandbalancetop extends EssentialsCommand {
+             sender.sendTl("orderBalances", ess.getUsers().getUserCount());
+         }
+ 
+-        ess.runTaskAsynchronously(new Viewer(sender, page, force));
++        final int finalPage = page;
++        final boolean finalForce = force;
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> new Viewer(sender, finalPage, finalForce).run());
+     }
+ 
+     @Override
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandbeezooka.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandbeezooka.java
+index 19e156f6643ef0563d85523a939f4cc01afb0159..4ea747f843bc124b6beafe5661947760279e70de 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandbeezooka.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandbeezooka.java
+@@ -23,11 +23,11 @@ public class Commandbeezooka extends EssentialsCommand {
+         final Entity bee = Mob.BEE.spawn(user.getWorld(), server, user.getBase().getEyeLocation());
+         bee.setVelocity(user.getBase().getEyeLocation().getDirection().multiply(2));
+ 
+-        ess.scheduleSyncDelayedTask(() -> {
++        ess.getEntityScheduler(bee).runDelayed(ess, scheduledTask -> {
+             final Location loc = bee.getLocation();
+             bee.remove();
+             loc.getWorld().createExplosion(loc, 0F);
+-        }, 20);
++        }, null, 20);
+     }
+ 
+ }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandcreatekit.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandcreatekit.java
+index 0c5189f82baf1d9be381c6667c92b89ff383209d..3a7cd05bec282e87745085f62028ce5cb0ed048b 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandcreatekit.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandcreatekit.java
+@@ -73,7 +73,7 @@ public class Commandcreatekit extends EssentialsCommand {
+     }
+ 
+     private void uploadPaste(final CommandSource sender, final String kitName, final long delay, final List<String> list) {
+-        ess.runTaskAsynchronously(() -> {
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+             try {
+                 final StringWriter sw = new StringWriter();
+                 final YamlConfigurationLoader loader = YamlConfigurationLoader.builder().sink(() -> new BufferedWriter(sw)).indent(2).nodeStyle(NodeStyle.BLOCK).build();
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandkittycannon.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandkittycannon.java
+index 18397f82f3789894b7e02a37687add2fc04a5c33..d1246a353540a189b7031f9e34e23b61be32ad91 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandkittycannon.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandkittycannon.java
+@@ -49,11 +49,11 @@ public class Commandkittycannon extends EssentialsCommand {
+     @Override
+     protected void run(final Server server, final User user, final String commandLabel, final String[] args) throws Exception {
+         final Entity ocelot = Mob.CAT.getType() == null ? spawnOcelot(server, user) : spawnCat(server, user);
+-        ess.scheduleSyncDelayedTask(() -> {
++        ess.getEntityScheduler(ocelot).runDelayed(ess, scheduledTask -> {
+             final Location loc = ocelot.getLocation();
+             ocelot.remove();
+             loc.getWorld().createExplosion(loc, 0F);
+-        }, 20);
++        }, null, 20);
+ 
+     }
+ }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandmail.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandmail.java
+index 683fce75332b31c18a9b2fee72205da36cd778f6..720d04a76a76919dc140629fe69eb57b7eefb0ed 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandmail.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandmail.java
+@@ -151,9 +151,9 @@ public class Commandmail extends EssentialsCommand {
+             if (!user.isAuthorized("essentials.mail.sendall")) {
+                 throw new TranslatableException("noPerm", "essentials.mail.sendall");
+             }
+-            ess.runTaskAsynchronously(new SendAll(user,
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> new SendAll(user,
+                     FormatUtil.formatMessage(user, "essentials.mail",
+-                            StringUtil.sanitizeString(FormatUtil.stripFormat(getFinalArg(args, 1)))), 0));
++                            StringUtil.sanitizeString(FormatUtil.stripFormat(getFinalArg(args, 1)))), 0).run());
+             user.sendTl("mailSent");
+             return;
+         }
+@@ -161,9 +161,15 @@ public class Commandmail extends EssentialsCommand {
+             if (!user.isAuthorized("essentials.mail.sendtempall")) {
+                 throw new TranslatableException("noPerm", "essentials.mail.sendtempall");
+             }
+-            ess.runTaskAsynchronously(new SendAll(user,
++            long dateDiff;
++            try {
++                dateDiff = DateUtil.parseDateDiff(args[1], true);
++            } catch (final Exception e) {
++                throw new RuntimeException("Invalid date format");
++            }
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> new SendAll(user,
+                     FormatUtil.formatMessage(user, "essentials.mail",
+-                            StringUtil.sanitizeString(FormatUtil.stripFormat(getFinalArg(args, 2)))), DateUtil.parseDateDiff(args[1], true)));
++                            StringUtil.sanitizeString(FormatUtil.stripFormat(getFinalArg(args, 2)))), dateDiff).run());
+             user.sendTl("mailSent");
+             return;
+         }
+@@ -207,7 +213,7 @@ public class Commandmail extends EssentialsCommand {
+                 throw new TranslatableException("noPerm", "essentials.mail.clearall");
+             }
+ 
+-            ess.runTaskAsynchronously(new ClearAll());
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> new ClearAll().run());
+             user.sendTl("mailClearedAll");
+             return;
+ 
+@@ -242,7 +248,7 @@ public class Commandmail extends EssentialsCommand {
+             sender.sendTl("mailCleared");
+             return;
+         } else if (args.length >= 1 && "clearall".equalsIgnoreCase(args[0])){
+-            ess.runTaskAsynchronously(new ClearAll());
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> new ClearAll().run());
+             sender.sendTl("mailClearedAll");
+             return;
+         } else if (args.length >= 3 && "send".equalsIgnoreCase(args[0])) {
+@@ -267,12 +273,12 @@ public class Commandmail extends EssentialsCommand {
+             sender.sendTl("mailSent");
+             return;
+         } else if (args.length >= 2 && "sendall".equalsIgnoreCase(args[0])) {
+-            ess.runTaskAsynchronously(new SendAll(Console.getInstance(), FormatUtil.replaceFormat(getFinalArg(args, 1)), 0));
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> new SendAll(Console.getInstance(), FormatUtil.replaceFormat(getFinalArg(args, 1)), 0).run());
+             sender.sendTl("mailSent");
+             return;
+         } else if (args.length >= 3 && "sendtempall".equalsIgnoreCase(args[0])) {
+             final long dateDiff = DateUtil.parseDateDiff(args[1], true);
+-            ess.runTaskAsynchronously(new SendAll(Console.getInstance(), FormatUtil.replaceFormat(getFinalArg(args, 2)), dateDiff));
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> new SendAll(Console.getInstance(), FormatUtil.replaceFormat(getFinalArg(args, 2)), dateDiff).run());
+             sender.sendTl("mailSent");
+             return;
+         } else if (args.length >= 2) {
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandnuke.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandnuke.java
+index 58ae8da0f719b8d4b54831e74f07a52766ee89c7..9b9ae343201e00e2e2f9e1d7f802b3e0212fe566 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandnuke.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandnuke.java
+@@ -38,14 +38,17 @@ public class Commandnuke extends EssentialsCommand {
+             user.sendTl("nuke");
+             final Location loc = user.getLocation();
+             final World world = loc.getWorld();
+-            if (world != null) {
++            if (world == null) {
++                continue;
++            }
++            ess.getRegionScheduler().run(ess, loc, scheduledTask -> {
+                 for (int x = -10; x <= 10; x += 5) {
+                     for (int z = -10; z <= 10; z += 5) {
+                         final TNTPrimed entity = world.spawn(new Location(world, loc.getBlockX() + x, world.getHighestBlockYAt(loc) + 64, loc.getBlockZ() + z), TNTPrimed.class);
+                         entity.setMetadata(NUKE_META_KEY, new FixedMetadataValue(ess, true));
+                     }
+                 }
+-            }
++            });
+         }
+     }
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandseen.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandseen.java
+index a9a851ad6a3059dc4dd1e473bcd00bb2c62c35bb..b414880c755ca863cab2c6a12e130898a89e6e6b 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandseen.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandseen.java
+@@ -61,7 +61,7 @@ public class Commandseen extends EssentialsCommand {
+                     return;
+                 }
+             }
+-            ess.getScheduler().runTaskAsynchronously(ess, new Runnable() {
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> new Runnable() {
+                 @Override
+                 public void run() {
+                     final User userFromBukkit = ess.getUsers().getUser(args[0]);
+@@ -203,7 +203,7 @@ public class Commandseen extends EssentialsCommand {
+     private void seenIP(final CommandSource sender, final String ipAddress, final String display) {
+         sender.sendTl("runningPlayerMatch", AdventureUtil.parsed(ess.getAdventureFacet().legacyToMini(display)));
+ 
+-        ess.runTaskAsynchronously(() -> {
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+             final List<String> matches = new ArrayList<>();
+             for (final UUID u : ess.getUsers().getAllUserUUIDs()) {
+                 final User user = ess.getUsers().loadUncachedUser(u);
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandskull.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandskull.java
+index b279b477c5c4a96c135b0ef0592fa8a96d8ad36e..8177c307b37b7f044c3798cc6debe2b3f01c4903 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandskull.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandskull.java
+@@ -106,7 +106,7 @@ public class Commandskull extends EssentialsCommand {
+     }
+ 
+     private void editSkull(final User user, final User receive, final ItemStack stack, final SkullMeta skullMeta, final String owner, final boolean spawn) {
+-        ess.runTaskAsynchronously(() -> {
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+             // Run this stuff async because it causes an HTTP request
+ 
+             String shortOwnerName;
+@@ -159,7 +159,7 @@ public class Commandskull extends EssentialsCommand {
+ 
+             final String shortNameFinal = shortOwnerName;
+ 
+-            ess.scheduleSyncDelayedTask(() -> {
++            ess.getEntityScheduler(user.getBase()).run(ess, scheduledTask2 -> {
+                 stack.setItemMeta(skullMeta);
+                 if (spawn) {
+                     Inventories.addItem(receive.getBase(), stack);
+@@ -170,7 +170,7 @@ public class Commandskull extends EssentialsCommand {
+                     return;
+                 }
+                 user.sendTl("skullChanged", shortNameFinal);
+-            });
++            }, null);
+         });
+     }
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandsudo.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandsudo.java
+index 861cf6b302f94d01397bc3dbb5f26268a2d8cf7f..42de6f3a49923f812aa1ab0f26efaea5c4e7cbf6 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandsudo.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandsudo.java
+@@ -53,7 +53,7 @@ public class Commandsudo extends EssentialsLoopCommand {
+                 }
+             }
+ 
+-            ess.scheduleSyncDelayedTask(new SudoCommandTask());
++            ess.getEntityScheduler(user.getBase()).run(ess, scheduledTask -> new SudoCommandTask().run(), null);
+         }
+     }
+ }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/CleanupCommand.java b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/CleanupCommand.java
+index b7eba8ff0587c24af61b528c4c234816a25aa700..f79f5a5f961cb52ef3174268b76f0fbb97d7ab9f 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/CleanupCommand.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/CleanupCommand.java
+@@ -34,7 +34,7 @@ public class CleanupCommand extends EssentialsTreeNode {
+         final double moneyArg = args.length >= 2 ? FloatUtil.parseDouble(args[1].replaceAll("[^0-9.]", "")) : 0;
+         final int homesArg = args.length >= 3 && NumberUtil.isInt(args[2]) ? Integer.parseInt(args[2]) : 0;
+ 
+-        ess.runTaskAsynchronously(() -> {
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+             final long currTime = System.currentTimeMillis();
+             for (final UUID u : ess.getUsers().getAllUserUUIDs()) {
+                 final User user = ess.getUsers().loadUncachedUser(u);
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/DumpCommand.java b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/DumpCommand.java
+index ba5f078e3ed6a686e2c40cc9bb9c9ed47bff3448..3650ab7316281254e848bc0c88fc179770a0a181 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/DumpCommand.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/DumpCommand.java
+@@ -133,7 +133,7 @@ public class DumpCommand extends EssentialsTreeNode {
+         final Map<String, String> disabledCommandsCopy = new HashMap<>(ess.getAlternativeCommandsHandler().disabledCommands());
+ 
+         // Further operations will be heavy IO
+-        ess.runTaskAsynchronously(() -> {
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+             boolean config = false;
+             boolean discord = false;
+             boolean kits = false;
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/HomesCommand.java b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/HomesCommand.java
+index 5a84c401c3f571b075d0113f02db5a8223ef6e08..96b6ba478aa182836d422ff73d7fd2e437c04a35 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/HomesCommand.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/HomesCommand.java
+@@ -34,7 +34,7 @@ public class HomesCommand extends EssentialsTreeNode {
+         switch (args[0]) {
+             case "fix":
+                 sender.sendTl("fixingHomes");
+-                ess.runTaskAsynchronously(() -> {
++                ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+                     for (final UUID u : ess.getUsers().getAllUserUUIDs()) {
+                         final User user = ess.getUsers().loadUncachedUser(u);
+                         if (user == null) {
+@@ -63,7 +63,7 @@ public class HomesCommand extends EssentialsTreeNode {
+                 } else {
+                     sender.sendTl("deletingHomes");
+                 }
+-                ess.runTaskAsynchronously(() -> {
++                ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+                     for (final UUID u : ess.getUsers().getAllUserUUIDs()) {
+                         final User user = ess.getUsers().loadUncachedUser(u);
+                         if (user == null) {
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/UsermapCommand.java b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/UsermapCommand.java
+index a7f80ec8c1c84a75fc948644e360ff31d12c90b3..09b1407754b18b3528c831c8196e360670003b62 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/UsermapCommand.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/UsermapCommand.java
+@@ -41,7 +41,7 @@ public class UsermapCommand extends EssentialsTreeNode {
+                 sender.sendTl("usermapPurge", String.valueOf(seppuku));
+ 
+                 final Set<UUID> uuids = new HashSet<>(ess.getUsers().getAllUserUUIDs());
+-                ess.runTaskAsynchronously(() -> {
++                ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+                     final File userdataFolder = new File(ess.getDataFolder(), "userdata");
+                     final File backupFolder = new File(ess.getDataFolder(), "userdata-npc-backup-boogaloo-" + System.currentTimeMillis());
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/VersionCommand.java b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/VersionCommand.java
+index 7be23713a5f228a3ad2e28f3dd43a0501c998471..e0d3be92de4105fe6f5b37fb4ee48527766aac40 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/VersionCommand.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/VersionCommand.java
+@@ -145,7 +145,7 @@ public class VersionCommand extends EssentialsTreeNode {
+         }
+ 
+         sender.sendTl("versionFetching");
+-        ess.runTaskAsynchronously(() -> {
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+             for (final ComponentHolder component : ess.getUpdateChecker().getVersionMessages(true, true, sender)) {
+                 sender.sendComponent(component);
+             }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/economy/EconomyLayers.java b/Essentials/src/main/java/com/earth2me/essentials/economy/EconomyLayers.java
+index a4184e5588aa4a9b52306aecd31c86c4500ad409..f49c5cf38a02f79d574b3c106411153c8583b0db 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/economy/EconomyLayers.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/economy/EconomyLayers.java
+@@ -32,7 +32,7 @@ public final class EconomyLayers {
+     }
+ 
+     public static void onEnable(final Essentials ess) {
+-        ess.scheduleSyncDelayedTask(() -> {
++        ess.getGlobalRegionScheduler().execute(ess, () -> {
+             serverStarted = true;
+             for (final Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
+                 if (!plugin.isEnabled()) {
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/updatecheck/UpdateChecker.java b/Essentials/src/main/java/com/earth2me/essentials/updatecheck/UpdateChecker.java
+index 0f596a1e3f6078c72a703827629da42a8bb3c8d0..61f23dba6cf0095eb2ee235eebddc5318db6a53a 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/updatecheck/UpdateChecker.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/updatecheck/UpdateChecker.java
+@@ -76,7 +76,7 @@ public final class UpdateChecker {
+                 return pendingDevFuture;
+             }
+             pendingDevFuture = new CompletableFuture<>();
+-            ess.runTaskAsynchronously(() -> {
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+                 pendingDevFuture.complete(cachedDev = fetchDistance(BRANCH, getVersionIdentifier()));
+                 pendingDevFuture = null;
+                 lastFetchTime = System.currentTimeMillis();
+@@ -92,7 +92,7 @@ public final class UpdateChecker {
+                 return pendingReleaseFuture;
+             }
+             pendingReleaseFuture = new CompletableFuture<>();
+-            ess.runTaskAsynchronously(() -> {
++            ess.getAsyncScheduler().runNow(ess, scheduledTask -> {
+                 catchBlock:
+                 try {
+                     final HttpURLConnection connection = tryRequestWithFallback(LATEST_RELEASE_URL, LATEST_RELEASE_PROXY_URL);
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/EssentialsDiscord.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/EssentialsDiscord.java
+index 47c19f411bd76768770ea33f5f21192b3ba4113f..e82a059512ee804a423b95b8a777233a0682f1a2 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/EssentialsDiscord.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/EssentialsDiscord.java
+@@ -25,6 +25,7 @@ public class EssentialsDiscord extends JavaPlugin implements IEssentialsModule {
+     private DiscordSettings settings;
+     private boolean isPAPI = false;
+     private boolean isEssentialsChat = false;
++    private boolean isDisabled = false;
+ 
+     @Override
+     public void onEnable() {
+@@ -60,7 +61,7 @@ public class EssentialsDiscord extends JavaPlugin implements IEssentialsModule {
+             jda = new JDADiscordService(this);
+             try {
+                 jda.startup();
+-                ess.scheduleSyncDelayedTask(() -> ((InteractionControllerImpl) jda.getInteractionController()).processBatchRegistration());
++                ess.getGlobalRegionScheduler().execute(ess, () -> ((InteractionControllerImpl) jda.getInteractionController()).processBatchRegistration());
+             } catch (Exception e) {
+                 getLogger().log(Level.SEVERE, ess.getAdventureFacet().miniToLegacy(tlLiteral("discordErrorLogin", e.getMessage())));
+                 if (ess.getSettings().isDebug()) {
+@@ -82,6 +83,7 @@ public class EssentialsDiscord extends JavaPlugin implements IEssentialsModule {
+ 
+     public void onReload() {
+         if (jda != null && !jda.isInvalidStartup()) {
++            isDisabled = false;
+             jda.updateListener();
+             jda.updatePresence();
+             jda.updatePrimaryChannel();
+@@ -90,6 +92,10 @@ public class EssentialsDiscord extends JavaPlugin implements IEssentialsModule {
+         }
+     }
+ 
++    public boolean isDisabled() {
++        return isDisabled || (jda != null && jda.isInvalidStartup());
++    }
++
+     public boolean isInvalidStartup() {
+         return jda != null && jda.isInvalidStartup();
+     }
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/JDADiscordService.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/JDADiscordService.java
+index dc8bdd2aba9cef43fe2a72d8c030f9318f7b9512..d6ee85684692b9bf80d08842c42cb5f7c3c04a8c 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/JDADiscordService.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/JDADiscordService.java
+@@ -260,7 +260,7 @@ public class JDADiscordService implements DiscordService, IEssentialsModule {
+             logger.log(Level.WARNING, "Error while loading the achievement/advancement listener. You will not receive achievement/advancement notifications on Discord.", e);
+         }
+ 
+-        getPlugin().getEss().scheduleSyncDelayedTask(() -> DiscordUtil.dispatchDiscordMessage(JDADiscordService.this, MessageType.DefaultTypes.SERVER_START, getSettings().getStartMessage(), true, null, null, null));
++        getPlugin().getEss().getGlobalRegionScheduler().execute(getPlugin(), () -> DiscordUtil.dispatchDiscordMessage(JDADiscordService.this, MessageType.DefaultTypes.SERVER_START, getSettings().getStartMessage(), true, null, null, null));
+ 
+         Bukkit.getServicesManager().register(DiscordService.class, this, plugin, ServicePriority.Normal);
+     }
+@@ -292,7 +292,7 @@ public class JDADiscordService implements DiscordService, IEssentialsModule {
+         if (Bukkit.getServer().isPrimaryThread()) {
+             Bukkit.getPluginManager().callEvent(event);
+         } else {
+-            Bukkit.getScheduler().runTask(plugin, () -> Bukkit.getPluginManager().callEvent(event));
++            if (!getPlugin().isDisabled()) getPlugin().getEss().getGlobalRegionScheduler().execute(getPlugin(), () -> Bukkit.getPluginManager().callEvent(event));
+         }
+     }
+ 
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/InteractionControllerImpl.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/InteractionControllerImpl.java
+index 26581597214be516629e8051b3a97bc1d7cf23b8..607c4a22cc64af0e6e30c8bda0a02349b0c2b68d 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/InteractionControllerImpl.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/InteractionControllerImpl.java
+@@ -64,7 +64,7 @@ public class InteractionControllerImpl extends ListenerAdapter implements Intera
+             interactionEvent.replyTl("noAccessCommand");
+             return;
+         }
+-        jda.getPlugin().getEss().scheduleSyncDelayedTask(() -> command.onCommand(interactionEvent));
++        jda.getPlugin().getEss().getGlobalRegionScheduler().execute(jda.getPlugin(), () -> command.onCommand(interactionEvent));
+     }
+ 
+     @Override
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/commands/ExecuteCommand.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/commands/ExecuteCommand.java
+index 09e1a9fad8ead3ed8cb1c41daea88f2bc63ef458..f420f83f74d114b11690d4c54872d32327579e6e 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/commands/ExecuteCommand.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/commands/ExecuteCommand.java
+@@ -22,7 +22,7 @@ public class ExecuteCommand extends InteractionCommandImpl {
+     public void onCommand(final InteractionEvent event) {
+         final String command = event.getStringArgument("command");
+         event.replyTl("discordCommandExecuteReply", command);
+-        Bukkit.getScheduler().runTask(jda.getPlugin(), () -> {
++        jda.getPlugin().getEss().getGlobalRegionScheduler().execute(jda.getPlugin(), () -> {
+             try {
+                 Bukkit.dispatchCommand(new DiscordCommandSender(jda, Bukkit.getConsoleSender(), message -> event.reply(MessageUtil.sanitizeDiscordMarkdown(message))).getSender(), command);
+             } catch (CommandException e) {
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/commands/MessageCommand.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/commands/MessageCommand.java
+index f0e7ceec73d607c869c37a2b68bc436d44c8a7ac..0f8f62d73fd87ab3c3859d8824858ffb96d79fc8 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/commands/MessageCommand.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/interactions/commands/MessageCommand.java
+@@ -55,7 +55,7 @@ public class MessageCommand extends InteractionCommandImpl {
+         user.sendTl("msgFormat", event.getMember().getName(), AdventureUtil.parsed(user.playerTl("meRecipient")), message);
+         // We use an atomic reference here so that java will garbage collect the recipient
+         final AtomicReference<DiscordMessageRecipient> ref = new AtomicReference<>(new DiscordMessageRecipient(event.getMember()));
+-        jda.getPlugin().getEss().runTaskLaterAsynchronously(() -> ref.set(null), 6000); // Expires after 5 minutes
++        jda.getPlugin().getEss().getAsyncScheduler().runDelayed(jda.getPlugin(), scheduledTask -> ref.set(null), 5, java.util.concurrent.TimeUnit.MINUTES); // Expires after 5 minutes
+         user.setReplyRecipient(ref.get());
+     }
+ }
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/BukkitChatListener.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/BukkitChatListener.java
+index 2ae1c91e0e891a175134678d7d6a8fba09cd2306..7daab66da7328776443dc4c4e233954f16f6c2c6 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/BukkitChatListener.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/BukkitChatListener.java
+@@ -20,7 +20,7 @@ public class BukkitChatListener implements Listener {
+     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+     public void onChat(AsyncPlayerChatEvent event) {
+         final Player player = event.getPlayer();
+-        Bukkit.getScheduler().runTask(jda.getPlugin(), () -> {
++        jda.getPlugin().getEss().getGlobalRegionScheduler().execute(jda.getPlugin(), () -> {
+             final DiscordChatMessageEvent chatEvent = new DiscordChatMessageEvent(event.getPlayer(), event.getMessage(), ChatType.UNKNOWN);
+             chatEvent.setCancelled(!jda.getSettings().isShowAllChat() && !event.getRecipients().containsAll(Bukkit.getOnlinePlayers()));
+             Bukkit.getPluginManager().callEvent(chatEvent);
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/DiscordCommandDispatcher.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/DiscordCommandDispatcher.java
+index c735aa7bdc929d17ae11c57e6bdbf274c1998b3c..1464c38a787d7f5d4c3cba282dc51e8aa17cf5b3 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/DiscordCommandDispatcher.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/DiscordCommandDispatcher.java
+@@ -30,7 +30,7 @@ public class DiscordCommandDispatcher extends ListenerAdapter {
+             }
+ 
+             final String command = event.getMessage().getContentRaw();
+-            Bukkit.getScheduler().runTask(jda.getPlugin(), () -> {
++            jda.getPlugin().getEss().getGlobalRegionScheduler().execute(jda.getPlugin(), () -> {
+                 try {
+                     Bukkit.dispatchCommand(new DiscordCommandSender(jda, Bukkit.getConsoleSender(), message ->
+                             event.getMessage().reply(message).queue()).getSender(), command);
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/PaperChatListener.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/PaperChatListener.java
+index ed178ba6b245255646007d229843e9cf2fb58dcd..c15daa3f92ac4a2edc34fb773c5459264c997d6e 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/PaperChatListener.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/listeners/PaperChatListener.java
+@@ -23,7 +23,7 @@ public class PaperChatListener extends PaperChatListenerProvider {
+         }
+ 
+         final Player player = event.getPlayer();
+-        Bukkit.getScheduler().runTask(jda.getPlugin(), () -> {
++        jda.getPlugin().getEss().getGlobalRegionScheduler().execute(jda.getPlugin(), () -> {
+             final DiscordChatMessageEvent chatEvent = new DiscordChatMessageEvent(event.getPlayer(), event.getMessage(), ChatType.UNKNOWN);
+             chatEvent.setCancelled(!jda.getSettings().isShowAllChat() && !event.recipients().containsAll(Bukkit.getOnlinePlayers()));
+             Bukkit.getPluginManager().callEvent(chatEvent);
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/ConsoleInjector.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/ConsoleInjector.java
+index 266fee02937f126a2304688536c3032e56adef03..28accb127c3cbef046309b5fec08f01188c65d53 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/ConsoleInjector.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/ConsoleInjector.java
+@@ -29,14 +29,14 @@ public class ConsoleInjector extends AbstractAppender {
+ 
+     private final JDADiscordService jda;
+     private final BlockingQueue<String> messageQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+-    private final int taskId;
++    private final io.papermc.paper.threadedregions.scheduler.ScheduledTask taskId;
+     private boolean removed = false;
+ 
+     public ConsoleInjector(JDADiscordService jda) {
+         super("EssentialsX-ConsoleInjector", null, null, false);
+         this.jda = jda;
+         ((Logger) LogManager.getRootLogger()).addAppender(this);
+-        taskId = Bukkit.getScheduler().runTaskTimerAsynchronously(jda.getPlugin(), () -> {
++        taskId = this.jda.getPlugin().getEss().getAsyncScheduler().runAtFixedRate(jda.getPlugin(), scheduledTask -> {
+             final StringBuilder buffer = new StringBuilder();
+             String curLine;
+             while ((curLine = messageQueue.peek()) != null) {
+@@ -50,7 +50,7 @@ public class ConsoleInjector extends AbstractAppender {
+             if (buffer.length() != 0) {
+                 sendMessage(buffer.toString());
+             }
+-        }, 20, 20 * QUEUE_PROCESS_PERIOD_SECONDS).getTaskId();
++        }, 20*50, 20 * QUEUE_PROCESS_PERIOD_SECONDS*50, java.util.concurrent.TimeUnit.MILLISECONDS);
+     }
+ 
+     private void sendMessage(String content) {
+@@ -108,7 +108,7 @@ public class ConsoleInjector extends AbstractAppender {
+ 
+     public void remove() {
+         ((Logger) LogManager.getRootLogger()).removeAppender(this);
+-        Bukkit.getScheduler().cancelTask(taskId);
++        taskId.cancel();
+         messageQueue.clear();
+         if (jda.getConsoleWebhook() != null && !jda.getConsoleWebhook().isShutdown()) {
+             jda.getConsoleWebhook().close();
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/DiscordCommandSender.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/DiscordCommandSender.java
+index f8389c9e43bee705fc841242206e6849a70f85ee..f363117087e641267b6e31ba306c06af447cf054 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/DiscordCommandSender.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/DiscordCommandSender.java
+@@ -12,7 +12,7 @@ import org.bukkit.scheduler.BukkitTask;
+ 
+ public class DiscordCommandSender {
+     private final CommandSender sender;
+-    private BukkitTask task;
++    private io.papermc.paper.threadedregions.scheduler.ScheduledTask task;
+     private String responseBuffer = "";
+     private long lastTime = System.currentTimeMillis();
+ 
+@@ -23,7 +23,7 @@ public class DiscordCommandSender {
+         };
+         this.sender = getCustomSender(sender, hook);
+ 
+-        task = Bukkit.getScheduler().runTaskTimerAsynchronously(jda.getPlugin(), () -> {
++        task = jda.getPlugin().getEss().getAsyncScheduler().runAtFixedRate(jda.getPlugin(), scheduledTask -> {
+             if (!responseBuffer.isEmpty() && System.currentTimeMillis() - lastTime >= 1000) {
+                 callback.onMessage(responseBuffer);
+                 responseBuffer = "";
+@@ -34,7 +34,7 @@ public class DiscordCommandSender {
+             if (System.currentTimeMillis() - lastTime >= 20000) {
+                 task.cancel();
+             }
+-        }, 0, 20);
++        }, 1, 20*50, java.util.concurrent.TimeUnit.MILLISECONDS);
+     }
+ 
+     private CommandSender getCustomSender(final ConsoleCommandSender consoleSender, final BukkitSenderProvider.MessageHook hook) {
+diff --git a/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/DiscordUtil.java b/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/DiscordUtil.java
+index 8686e65c4cd876c4e42261384b8952c01b646466..bad7a08a8ff5cae39ec3a0472630a2cc5beee26a 100644
+--- a/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/DiscordUtil.java
++++ b/EssentialsDiscord/src/main/java/net/essentialsx/discord/util/DiscordUtil.java
+@@ -248,7 +248,7 @@ public final class DiscordUtil {
+         if (Bukkit.getServer().isPrimaryThread()) {
+             Bukkit.getPluginManager().callEvent(event);
+         } else {
+-            Bukkit.getScheduler().runTask(jda.getPlugin(), () -> Bukkit.getPluginManager().callEvent(event));
++            jda.getPlugin().getEss().getGlobalRegionScheduler().execute(jda.getPlugin(), () -> Bukkit.getPluginManager().callEvent(event));
+         }
+     }
+ }
+diff --git a/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/AccountLinkManager.java b/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/AccountLinkManager.java
+index 930bdb2ff26398401a6db94192449f55d9299624..ba18db44f78d2aae0790a3ab2e096734a523cc54 100644
+--- a/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/AccountLinkManager.java
++++ b/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/AccountLinkManager.java
+@@ -137,7 +137,7 @@ public class AccountLinkManager implements IEssentialsModule, DiscordLinkService
+             runnable.run();
+             return;
+         }
+-        ess.getEss().scheduleSyncDelayedTask(runnable);
++        this.ess.getEss().getGlobalRegionScheduler().execute(ess, runnable);
+     }
+ 
+     private void ensureAsync(final Runnable runnable) {
+@@ -145,7 +145,7 @@ public class AccountLinkManager implements IEssentialsModule, DiscordLinkService
+             runnable.run();
+             return;
+         }
+-        ess.getEss().runTaskAsynchronously(runnable);
++        this.ess.getEss().getAsyncScheduler().runNow(ess, scheduledTask -> runnable.run());
+     }
+ 
+     private String generateCode() {
+diff --git a/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/listeners/LinkBukkitListener.java b/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/listeners/LinkBukkitListener.java
+index 959a30adf3390c3c28be6536df78b50bf35a64b4..73bacc6f850ccd39269bee039f131fc19651ce7a 100644
+--- a/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/listeners/LinkBukkitListener.java
++++ b/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/listeners/LinkBukkitListener.java
+@@ -10,6 +10,7 @@ import net.essentialsx.discord.util.MessageUtil;
+ import net.essentialsx.discordlink.DiscordLinkSettings;
+ import net.essentialsx.discordlink.EssentialsDiscordLink;
+ import org.bukkit.Bukkit;
++import org.bukkit.entity.Player;
+ import org.bukkit.event.EventHandler;
+ import org.bukkit.event.EventPriority;
+ import org.bukkit.event.Listener;
+@@ -159,11 +160,12 @@ public class LinkBukkitListener implements Listener {
+ 
+         switch (ess.getSettings().getLinkPolicy()) {
+             case KICK: {
+-                final Runnable kickTask = () -> event.getUser().getBase().kickPlayer(ess.getEss().getAdventureFacet().miniToLegacy(event.getUser().playerTl("discordLinkLoginKick", "/link " + finalCode, ess.getApi().getInviteUrl())));
+-                if (Bukkit.isPrimaryThread()) {
++                final Player player = event.getUser().getBase();
++                final Runnable kickTask = () -> player.kickPlayer(ess.getEss().getAdventureFacet().miniToLegacy(event.getUser().playerTl("discordLinkLoginKick", "/link " + finalCode, ess.getApi().getInviteUrl())));
++                if (Bukkit.isOwnedByCurrentRegion(player)) {
+                     kickTask.run();
+                 } else {
+-                    ess.getEss().scheduleSyncDelayedTask(kickTask);
++                    ess.getEss().getEntityScheduler(player).run(ess, scheduledTask -> kickTask.run(), null);
+                 }
+                 break;
+             }
+diff --git a/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/rolesync/RoleSyncManager.java b/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/rolesync/RoleSyncManager.java
+index 72353afb73582c301efc6135734c7434e1b67a9a..251e47165931e4ecdb7b6d26656c12fa4d09b587 100644
+--- a/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/rolesync/RoleSyncManager.java
++++ b/EssentialsDiscordLink/src/main/java/net/essentialsx/discordlink/rolesync/RoleSyncManager.java
+@@ -30,14 +30,14 @@ public class RoleSyncManager implements Listener {
+     private final Map<String, InteractionRole> groupToRoleMap = new HashMap<>();
+     private final Map<String, String> roleIdToGroupMap = new HashMap<>();
+     private final Semaphore syncSemaphore = new Semaphore(5);
+-    private BukkitTask syncTask;
++    private io.papermc.paper.threadedregions.scheduler.ScheduledTask syncTask;
+     private int syncCursor = 0;
+ 
+     public RoleSyncManager(final EssentialsDiscordLink ess) {
+         this.ess = ess;
+         Bukkit.getPluginManager().registerEvents(this, ess);
+         onReload();
+-        this.syncTask = this.ess.getEss().runTaskTimerAsynchronously(() -> {
++        this.syncTask = this.ess.getEss().getAsyncScheduler().runAtFixedRate(ess, scheduledTask -> {
+             if (groupToRoleMap.isEmpty() && roleIdToGroupMap.isEmpty()) {
+                 return;
+             }
+@@ -67,7 +67,7 @@ public class RoleSyncManager implements Listener {
+                 final Map.Entry<String, String> entry = entries.get(i);
+                 sync(new UUIDPlayer(UUID.fromString(entry.getKey())), entry.getValue(), groupToRoleMapCopy, roleIdToGroupMapCopy, primaryOnly, removeGroups, removeRoles);
+             }
+-        }, 0, ess.getSettings().getRoleSyncResyncDelay() * 1200L);
++        }, 1, ess.getSettings().getRoleSyncResyncDelay() * 1200L*50, java.util.concurrent.TimeUnit.MILLISECONDS);
+     }
+ 
+     public void shutdown() {
+@@ -89,7 +89,7 @@ public class RoleSyncManager implements Listener {
+                      final boolean primaryOnly, final boolean removeGroups, final boolean removeRoles) {
+         final List<String> groups = primaryOnly ?
+                 Collections.singletonList(ess.getEss().getPermissionsHandler().getGroup(player)) : ess.getEss().getPermissionsHandler().getGroups(player);
+-        ess.getEss().runTaskAsynchronously(() -> {
++        ess.getEss().getAsyncScheduler().runNow(ess, (scheduledTask) -> {
+             try {
+                 if (!syncSemaphore.tryAcquire(5, TimeUnit.SECONDS)) {
+                     return;
+@@ -102,7 +102,7 @@ public class RoleSyncManager implements Listener {
+                     if (ess.getSettings().isUnlinkOnLeave()) {
+                         ess.getLinkManager().removeAccount(ess.getEss().getUser(player), DiscordLinkStatusChangeEvent.Cause.UNSYNC_LEAVE);
+                     } else {
+-                        ess.getEss().runTaskAsynchronously(() -> unSync(player.getUniqueId(), discordId));
++                        ess.getEss().getAsyncScheduler().runNow(ess, (scheduledTask2) -> unSync(player.getUniqueId(), discordId));
+                     }
+                     return CompletableFuture.completedFuture(null);
+                 }
+@@ -165,7 +165,7 @@ public class RoleSyncManager implements Listener {
+             return;
+         }
+ 
+-        ess.getEss().runTaskAsynchronously(() -> {
++        ess.getEss().getAsyncScheduler().runNow(ess, (scheduledTask) -> {
+             try {
+                 if (!syncSemaphore.tryAcquire(5, TimeUnit.SECONDS)) {
+                     return;
+@@ -191,7 +191,7 @@ public class RoleSyncManager implements Listener {
+ 
+     @EventHandler
+     public void onJoin(PlayerJoinEvent event) {
+-        ess.getEss().runTaskAsynchronously(() -> {
++        ess.getEss().getAsyncScheduler().runNow(ess, (scheduledTask) -> {
+             if (ess.getLinkManager().isLinked(event.getPlayer().getUniqueId())) {
+                 sync(event.getPlayer().getUniqueId(), ess.getLinkManager().getDiscordId(event.getPlayer().getUniqueId()));
+             }
+diff --git a/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java b/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
+index bf6e19492d31835f7cf03ea801228e01f6561520..c11e7aced092f74b9dcdc9ad51d73b4496babadf 100644
+--- a/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
++++ b/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
+@@ -50,7 +50,7 @@ class EssentialsSpawnPlayerListener implements Listener {
+                     (!event.isAnchorSpawn() || ess.getSettings().isRespawnAtAnchor()))) {
+                 // cannot nuke this sync load due to the event being sync so it would hand either way
+                 if(VersionUtil.getServerBukkitVersion().isHigherThanOrEqualTo(VersionUtil.v1_20_4_R01)) {
+-                    respawnLocation = user.getBase().getRespawnLocation();
++                    respawnLocation = user.getBase().getRespawnLocation(false);
+                 } else { // For versions prior to 1.20.4.
+                     respawnLocation = user.getBase().getBedSpawnLocation();
+                 }
+@@ -77,7 +77,7 @@ class EssentialsSpawnPlayerListener implements Listener {
+     }
+ 
+     void onPlayerJoin(final PlayerJoinEvent event) {
+-        ess.runTaskAsynchronously(() -> delayedJoin(event.getPlayer()));
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> delayedJoin(event.getPlayer()));
+     }
+ 
+     private void delayedJoin(final Player player) {
+@@ -88,7 +88,7 @@ class EssentialsSpawnPlayerListener implements Listener {
+                 final User user = ess.getUser(player);
+ 
+                 if (ess.getSettings().isUserInSpawnOnJoinGroup(user) && !user.isAuthorized("essentials.spawn-on-join.exempt")) {
+-                    ess.scheduleSyncDelayedTask(() -> {
++                    ess.getEntityScheduler(player).run(ess, scheduledTask -> {
+                         final Location spawn = spawns.getSpawn(user.getGroup());
+                         if (spawn == null) {
+                             return;
+@@ -99,7 +99,7 @@ class EssentialsSpawnPlayerListener implements Listener {
+                             return false;
+                         });
+                         user.getAsyncTeleport().nowUnsafe(spawn, TeleportCause.PLUGIN, future);
+-                    });
++                    }, null);
+                 }
+             }
+ 
+@@ -111,10 +111,10 @@ class EssentialsSpawnPlayerListener implements Listener {
+         final boolean spawnRandomly = tryRandomTeleport(user, ess.getSettings().getRandomSpawnLocation());
+ 
+         if (!spawnRandomly && !"none".equalsIgnoreCase(ess.getSettings().getNewbieSpawn())) {
+-            ess.scheduleSyncDelayedTask(new NewPlayerTeleport(user), 1L);
++            ess.getEntityScheduler(user.getBase()).runDelayed(ess, scheduledTask -> new NewPlayerTeleport(user).run(), null, 1L);
+         }
+ 
+-        ess.scheduleSyncDelayedTask(() -> {
++        ess.getEntityScheduler(user.getBase()).runDelayed(ess, scheduledTask -> {
+             if (!user.getBase().isOnline()) {
+                 return;
+             }
+@@ -139,7 +139,7 @@ class EssentialsSpawnPlayerListener implements Listener {
+             }
+ 
+             logger.log(Level.FINE, "New player join");
+-        }, 2L);
++        }, null, 2L);
+     }
+ 
+     private class NewPlayerTeleport implements Runnable {
+diff --git a/EssentialsXMPP/src/main/java/com/earth2me/essentials/xmpp/EssentialsXMPPPlayerListener.java b/EssentialsXMPP/src/main/java/com/earth2me/essentials/xmpp/EssentialsXMPPPlayerListener.java
+index 7bb5914631e9dd8c28c8de10fc34defa54b3878e..35167213049c346868226966191b2a0493102ed3 100644
+--- a/EssentialsXMPP/src/main/java/com/earth2me/essentials/xmpp/EssentialsXMPPPlayerListener.java
++++ b/EssentialsXMPP/src/main/java/com/earth2me/essentials/xmpp/EssentialsXMPPPlayerListener.java
+@@ -24,7 +24,7 @@ class EssentialsXMPPPlayerListener implements Listener {
+     public void onPlayerJoin(final PlayerJoinEvent event) {
+         final User user = ess.getUser(event.getPlayer());
+ 
+-        Bukkit.getScheduler().scheduleSyncDelayedTask(ess, EssentialsXMPP::updatePresence);
++        event.getPlayer().getScheduler().run(ess, task -> EssentialsXMPP.updatePresence(), null);
+ 
+         sendMessageToSpyUsers("Player " + user.getDisplayName() + " joined the game");
+     }
+@@ -39,7 +39,7 @@ class EssentialsXMPPPlayerListener implements Listener {
+     public void onPlayerQuit(final PlayerQuitEvent event) {
+         final User user = ess.getUser(event.getPlayer());
+ 
+-        Bukkit.getScheduler().scheduleSyncDelayedTask(ess, EssentialsXMPP::updatePresence);
++        event.getPlayer().getScheduler().run(ess, task -> EssentialsXMPP.updatePresence(), null);
+ 
+         sendMessageToSpyUsers("Player " + user.getDisplayName() + " left the game");
+     }
+@@ -49,7 +49,7 @@ class EssentialsXMPPPlayerListener implements Listener {
+             final List<String> users = EssentialsXMPP.getInstance().getSpyUsers();
+             synchronized (users) {
+                 for (final String address : users) {
+-                    Bukkit.getScheduler().scheduleSyncDelayedTask(ess, () -> EssentialsXMPP.getInstance().sendMessage(address, message));
++                    Bukkit.getGlobalRegionScheduler().execute(ess, () -> EssentialsXMPP.getInstance().sendMessage(address, message));
+                 }
+             }
+         } catch (final Exception ignored) {
+diff --git a/EssentialsXMPP/src/main/java/com/earth2me/essentials/xmpp/XMPPManager.java b/EssentialsXMPP/src/main/java/com/earth2me/essentials/xmpp/XMPPManager.java
+index 0530d4974c2f681f5a863008f908fcebe95eafdb..d961f0d5eaa526a19acf7da12ad75eaf1c84ab53 100644
+--- a/EssentialsXMPP/src/main/java/com/earth2me/essentials/xmpp/XMPPManager.java
++++ b/EssentialsXMPP/src/main/java/com/earth2me/essentials/xmpp/XMPPManager.java
+@@ -328,7 +328,7 @@ public class XMPPManager extends Handler implements MessageListener, ChatManager
+ 
+     private void sendCommand(final Chat chat, final String message) {
+         if (config.getList("op-users", String.class).contains(StringUtils.parseBareAddress(chat.getParticipant()))) {
+-            parent.getServer().getScheduler().runTask(parent, () -> {
++            parent.getEss().getGlobalRegionScheduler().run(parent, scheduledTask -> {
+                 try {
+                     parent.getServer().dispatchCommand(Console.getInstance().getCommandSender(), message.substring(1));
+                 } catch (final Exception ex) {

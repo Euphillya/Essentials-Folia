@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 05:46:08 +0200
+Subject: [PATCH]  Replace BukkitRunnable to FoliaRunnable
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/NyanCommand.java b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/NyanCommand.java
+index 9e42fc503e980967e1d6be5b2a1fb3b086b3eb3c..e0c30a1006a312bd056a46826bced7be70d1f131 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/NyanCommand.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/essentials/NyanCommand.java
+@@ -29,10 +29,10 @@ public class NyanCommand extends EssentialsTreeNode {
+         }
+ 
+         currentTune = new TuneRunnable(NYAN_TUNE, NOTE_HARP, ess::getOnlinePlayers);
+-        currentTune.runTaskTimer(ess, 20, 2);
++        currentTune.runAtFixedRate(ess, 20, 2);
+     }
+ 
+-    private static class TuneRunnable extends BukkitRunnable {
++    private static class TuneRunnable extends com.earth2me.essentials.api.FoliaRunnable  {
+         private static final Map<String, Float> noteMap = ImmutableMap.<String, Float>builder()
+                 .put("1F#", 0.5f)
+                 .put("1G", 0.53f)
+@@ -66,6 +66,7 @@ public class NyanCommand extends EssentialsTreeNode {
+         private int i = 0;
+ 
+         TuneRunnable(final String tuneStr, final Sound sound, final Supplier<Collection<Player>> players) {
++            super(org.bukkit.Bukkit.getGlobalRegionScheduler());
+             this.tune = tuneStr.split(",");
+             this.sound = sound;
+             this.players = players;
