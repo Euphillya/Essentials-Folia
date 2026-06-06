@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 06:54:31 +0200
+Subject: [PATCH] Fix for crash if a player leaves while someone else /invsee
+ them
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
+index 0048a77b342f0ea29a26218e493ff2ee5110553b..f074786dc3b663dbc31d331ae9a301f8956ef8b7 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
+@@ -323,13 +323,13 @@ public class EssentialsPlayerListener implements Listener {
+         }
+ 
+         final ArrayList<HumanEntity> viewers = new ArrayList<>(user.getBase().getInventory().getViewers());
+-        for (final HumanEntity viewer : viewers) {
++        for (final HumanEntity viewer : viewers) {  ess.getEntityScheduler(viewer).run(ess, scheduledTask -> {
+             if (viewer instanceof Player) {
+                 final User uviewer = ess.getUser((Player) viewer);
+                 if (uviewer.isInvSee()) {
+                     uviewer.getBase().closeInventory();
+                 }
+-            }
++            }}, null);
+         }
+ 
+         user.updateActivity(false, AfkStatusChangeEvent.Cause.QUIT);

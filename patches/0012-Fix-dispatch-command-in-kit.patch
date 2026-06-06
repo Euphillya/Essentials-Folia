@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 06:42:52 +0200
+Subject: [PATCH] Fix dispatch command in kit
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/Kit.java b/Essentials/src/main/java/com/earth2me/essentials/Kit.java
+index 895b13d82201e12d2f1325b57c3febee9d929867..ef02f643069c6c8529d92d7c49496eb0e329ae15 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/Kit.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/Kit.java
+@@ -285,10 +285,10 @@ public class Kit {
+                 final Trade t = new Trade(value, ess);
+                 t.pay(user, OverflowType.DROP);
+             }
+-
++            ess.getGlobalRegionScheduler().execute(ess, () -> {
+             for (final String cmd : commandQueue) {
+                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+-            }
++            }});
+ 
+             if (spew) {
+                 user.sendTl("kitInvFull");

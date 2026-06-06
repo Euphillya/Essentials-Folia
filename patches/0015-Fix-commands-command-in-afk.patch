@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 06:53:14 +0200
+Subject: [PATCH] Fix commands command in afk
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/User.java b/Essentials/src/main/java/com/earth2me/essentials/User.java
+index 203d8db6573569c1b9c363eb69fb8e88284ce789..1d3cd83098cf50ad1b17b6440ec8ef4cf6921e57 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/User.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/User.java
+@@ -892,6 +892,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
+                 }
+             } else {
+                 // If `afk-timeout-commands` in config.yml is populated, execute the command(s) instead of kicking the player.
++                ess.getGlobalRegionScheduler().execute(ess, () -> {
+                 for (final String command : ess.getSettings().getAfkTimeoutCommands()) {
+                     if (command == null || command.isEmpty()){
+                         continue;
+@@ -899,7 +900,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
+                     // Replace placeholders in the command with actual values.
+                     final String cmd = command.replace("{USERNAME}", getName()).replace("{KICKTIME}", String.valueOf(kickTime));
+                     ess.getServer().dispatchCommand(ess.getServer().getConsoleSender(), cmd);
+-                }
++                }});
+             }
+         }
+         final long autoafk = ess.getSettings().getAutoAfk();

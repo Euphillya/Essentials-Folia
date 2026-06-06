@@ -1,0 +1,205 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 06:41:04 +0200
+Subject: [PATCH] PR 6518 Misc. Folia fixes
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
+index fe3e83de46204eb42b63ead0d29d574d0b6f8631..e398a0c3c0349a9d846991d765031ecf0b0d166d 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
+@@ -396,6 +396,9 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
+             // Tile Entity Provider
+             providerFactory.registerProvider(BukkitTileEntityProvider.class, PaperTileEntityProvider.class);
+ 
++            // World Tile Entity Count Provider
++            providerFactory.registerProvider(net.ess3.provider.providers.BukkitWorldTileEntityCountProvider.class, net.ess3.provider.providers.PaperWorldTileEntityCountProvider.class);
++
+             // Tick Count Provider
+             providerFactory.registerProvider(PaperTickCountProvider.class);
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgc.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgc.java
+index b35449507e73562da1d477686021b6230995758f..fbcf3930325014edbb67165c3828130f6ffca16a 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgc.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgc.java
+@@ -3,7 +3,7 @@ package com.earth2me.essentials.commands;
+ import com.earth2me.essentials.CommandSource;
+ import com.earth2me.essentials.utils.DateUtil;
+ import com.earth2me.essentials.utils.NumberUtil;
+-import net.ess3.provider.TileEntityProvider;
++import net.ess3.provider.WorldTileEntityCountProvider;
+ import org.bukkit.ChatColor;
+ import org.bukkit.Chunk;
+ import org.bukkit.Server;
+@@ -20,24 +20,15 @@ public class Commandgc extends EssentialsCommand {
+ 
+     @Override
+     protected void run(final Server server, final CommandSource sender, final String commandLabel, final String[] args) throws Exception {
+-        final double tps = ess.getTimer().getAverageTPS();
+-        final ChatColor color;
+-        if (tps >= 18.0) {
+-            color = ChatColor.GREEN;
+-        } else if (tps >= 15.0) {
+-            color = ChatColor.YELLOW;
+-        } else {
+-            color = ChatColor.RED;
+-        }
+ 
+         sender.sendTl("uptime", DateUtil.formatDateDiff(ManagementFactory.getRuntimeMXBean().getStartTime()));
+-        sender.sendTl("tps", "" + color + NumberUtil.formatDouble(tps));
++        //sender.sendTl("tps", "" + color + NumberUtil.formatDouble(tps));
+         sender.sendTl("gcmax", Runtime.getRuntime().maxMemory() / 1024 / 1024);
+         sender.sendTl("gctotal", Runtime.getRuntime().totalMemory() / 1024 / 1024);
+         sender.sendTl("gcfree", Runtime.getRuntime().freeMemory() / 1024 / 1024);
+ 
+         final List<World> worlds = server.getWorlds();
+-        final TileEntityProvider tileEntityProvider = ess.provider(TileEntityProvider.class);
++        final WorldTileEntityCountProvider worldTileEntityCountProvider = ess.provider(WorldTileEntityCountProvider.class);
+         for (final World w : worlds) {
+             String worldType = "World";
+             switch (w.getEnvironment()) {
+@@ -49,15 +40,7 @@ public class Commandgc extends EssentialsCommand {
+                     break;
+             }
+ 
+-            int tileEntities = 0;
+-
+-            try {
+-                for (final Chunk chunk : w.getLoadedChunks()) {
+-                    tileEntities += tileEntityProvider.getTileEntities(chunk).length;
+-                }
+-            } catch (final java.lang.ClassCastException ex) {
+-                ess.getLogger().log(Level.SEVERE, "Corrupted chunk data on world " + w, ex);
+-            }
++            final int tileEntities = worldTileEntityCountProvider.getTileEntityCount(w);
+ 
+             sender.sendTl("gcWorld", worldType, w.getName(), w.getLoadedChunks().length, w.getEntities().size(), tileEntities);
+         }
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandkill.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandkill.java
+index 80b9983bba2317234675eece35053eeece7f8906..3dce61747cf7d8b56e2106dfd5a4694650dc18de 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandkill.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandkill.java
+@@ -31,14 +31,14 @@ public class Commandkill extends EssentialsLoopCommand {
+             throw new PlayerExemptException("killExempt", matchPlayer.getDisplayName());
+         }
+         final DamageEventProvider provider = ess.provider(DamageEventProvider.class);
+-
++        ess.getEntityScheduler(matchPlayer).run(ess, (scheduledTask) -> {
+         final EntityDamageEvent ede = provider.callDamageEvent(matchPlayer, sender.isPlayer() && sender.getPlayer().getName().equals(matchPlayer.getName()) ? EntityDamageEvent.DamageCause.SUICIDE : EntityDamageEvent.DamageCause.CUSTOM, Float.MAX_VALUE);
+         if (ede.isCancelled() && sender.isPlayer() && !ess.getUser(sender.getPlayer()).isAuthorized("essentials.kill.force")) {
+             return;
+         }
+         ede.getEntity().setLastDamageCause(ede);
+         matchPlayer.setHealth(0);
+-        sender.sendTl("kill", matchPlayer.getDisplayName());
++        sender.sendTl("kill", matchPlayer.getDisplayName()); }, null);
+     }
+ 
+     @Override
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandlightning.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandlightning.java
+index 046923c684a0d1a0c19c0c69f7ec2c0691620918..573c12fae94c9166cf7a234250011f309a4cdac3 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandlightning.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandlightning.java
+@@ -32,7 +32,7 @@ public class Commandlightning extends EssentialsLoopCommand {
+             }
+         }
+         final int finalPower = power;
+-        loopOnlinePlayersConsumer(server, sender, false, true, args[0], player -> {
++        loopOnlinePlayersConsumer(server, sender, false, true, args[0], player -> {ess.getEntityScheduler(player.getBase()).run(ess, (scheduledTask) -> {
+             sender.sendTl("lightningUse", player.getDisplayName());
+             final LightningStrike strike = player.getBase().getWorld().strikeLightningEffect(player.getBase().getLocation());
+ 
+@@ -42,7 +42,7 @@ public class Commandlightning extends EssentialsLoopCommand {
+             if (ess.getSettings().warnOnSmite()) {
+                 player.sendTl("lightningSmited");
+             }
+-        });
++        }, null);});
+         loopOnlinePlayers(server, sender, true, true, args[0], null);
+     }
+ 
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandthunder.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandthunder.java
+index 09a93328d11e214db2331aaaec1939e5facfaaf9..2fc8dd8a0ddbb62f55702057f9ae909ee31fea0d 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandthunder.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandthunder.java
+@@ -23,15 +23,15 @@ public class Commandthunder extends EssentialsCommand {
+         final World world = user.getWorld();
+         final boolean setThunder = args[0].equalsIgnoreCase("true");
+ 
+-        if (args.length == 1) {
++        if (args.length == 1) {ess.getGlobalRegionScheduler().execute(ess, () -> {
+             world.setThundering(setThunder);
+-            user.sendTl("thunder", CommonPlaceholders.enableDisable(user.getSource(), setThunder));
++            user.sendTl("thunder", CommonPlaceholders.enableDisable(user.getSource(), setThunder));});
+             return;
+         }
+-
++        ess.getGlobalRegionScheduler().execute(ess, () -> {
+         world.setThundering(setThunder);
+         world.setThunderDuration(Integer.parseInt(args[1]) * 20);
+-        user.sendTl("thunderDuration", CommonPlaceholders.enableDisable(user.getSource(), setThunder), Integer.parseInt(args[1]));
++        user.sendTl("thunderDuration", CommonPlaceholders.enableDisable(user.getSource(), setThunder), Integer.parseInt(args[1]));});
+     }
+ 
+     @Override
+diff --git a/providers/BaseProviders/src/main/java/net/ess3/provider/WorldTileEntityCountProvider.java b/providers/BaseProviders/src/main/java/net/ess3/provider/WorldTileEntityCountProvider.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..c43add23b96040f8580fa83e817c1145811feb3d
+--- /dev/null
++++ b/providers/BaseProviders/src/main/java/net/ess3/provider/WorldTileEntityCountProvider.java
+@@ -0,0 +1,7 @@
++package net.ess3.provider;
++
++import org.bukkit.World;
++
++public interface WorldTileEntityCountProvider extends Provider {
++    int getTileEntityCount(final World world);
++}
+\ No newline at end of file
+diff --git a/providers/BaseProviders/src/main/java/net/ess3/provider/providers/BukkitWorldTileEntityCountProvider.java b/providers/BaseProviders/src/main/java/net/ess3/provider/providers/BukkitWorldTileEntityCountProvider.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..00d704a5158e66f2ef33cdaea9142a44b96015fd
+--- /dev/null
++++ b/providers/BaseProviders/src/main/java/net/ess3/provider/providers/BukkitWorldTileEntityCountProvider.java
+@@ -0,0 +1,20 @@
++package net.ess3.provider.providers;
++
++import net.ess3.provider.WorldTileEntityCountProvider;
++import net.essentialsx.providers.ProviderData;
++import org.bukkit.Chunk;
++import org.bukkit.World;
++
++@ProviderData(description = "Bukkit World Tile Entity Count Provider")
++public class BukkitWorldTileEntityCountProvider implements WorldTileEntityCountProvider {
++    @Override
++    public int getTileEntityCount(World world) {
++        int tileEntities = 0;
++
++        for (final Chunk chunk : world.getLoadedChunks()) {
++            tileEntities += chunk.getTileEntities().length;
++        }
++
++        return tileEntities;
++    }
++}
+\ No newline at end of file
+diff --git a/providers/PaperProvider/src/main/java/net/ess3/provider/providers/PaperWorldTileEntityCountProvider.java b/providers/PaperProvider/src/main/java/net/ess3/provider/providers/PaperWorldTileEntityCountProvider.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..17369364527a8ac4a18b69c494649bcb237bb2c8
+--- /dev/null
++++ b/providers/PaperProvider/src/main/java/net/ess3/provider/providers/PaperWorldTileEntityCountProvider.java
+@@ -0,0 +1,13 @@
++package net.ess3.provider.providers;
++
++import net.ess3.provider.WorldTileEntityCountProvider;
++import net.essentialsx.providers.ProviderData;
++import org.bukkit.World;
++
++@ProviderData(description = "Paper 1.11+ World Tile Entity Count Provider", weight = 1)
++public class PaperWorldTileEntityCountProvider implements WorldTileEntityCountProvider {
++    @Override
++    public int getTileEntityCount(World world) {
++        return world.getTileEntityCount();
++    }
++}
+\ No newline at end of file

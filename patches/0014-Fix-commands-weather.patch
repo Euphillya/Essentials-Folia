@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 06:51:56 +0200
+Subject: [PATCH] Fix commands weather
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandweather.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandweather.java
+index 242f0305277bcaa156b81b04b40e824c7e76d220..00835fe95d6cc8adba017f84650357db2b3e3644 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandweather.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandweather.java
+@@ -28,7 +28,7 @@ public class Commandweather extends EssentialsCommand {
+             }
+         } else {
+             isStorm = args[0].equalsIgnoreCase("storm");
+-        }
++        } org.bukkit.Bukkit.getGlobalRegionScheduler().execute(ess, () -> {
+ 
+         final World world = user.getWorld();
+ 
+@@ -39,7 +39,7 @@ public class Commandweather extends EssentialsCommand {
+             return;
+         }
+         world.setStorm(isStorm);
+-        user.sendTl(isStorm ? "weatherStorm" : "weatherSun", world.getName());
++            user.sendTl(isStorm ? "weatherStorm" : "weatherSun", world.getName()); });
+     }
+ 
+     @Override

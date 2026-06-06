@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sat, 6 Jun 2026 06:42:12 +0200
+Subject: [PATCH] Fix command time
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandtime.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandtime.java
+index f4ab381936829a1990e32c967264022a9c15dedc..68034ced058d7c994a23244380e7da8e01b686f0 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandtime.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandtime.java
+@@ -97,7 +97,8 @@ public class Commandtime extends EssentialsCommand {
+             if (!add) {
+                 time -= time % 24000;
+             }
+-            world.setTime(time + (add ? 0 : 24000) + timeTick);
++            final long timeFinal = time + (add ? 0 : 24000) + timeTick;
++            ess.getGlobalRegionScheduler().execute(ess, () -> world.setTime(timeFinal));
+ 
+             // Re-apply ptime offsets so players maintain their intended visible time
+             final long newWorldTime = world.getTime();
