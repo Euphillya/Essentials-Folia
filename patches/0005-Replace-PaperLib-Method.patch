@@ -114,7 +114,7 @@ index 40375cc6690fc7f1c9bb284a1f02cbb084090fad..4a160114d08e4487534bf22a729e91d8
                  location.setY(getNetherYAt(location));
              } else {
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
-index 37065f98c69c04029824e0f35356880e66fc002f..0588906f4ff6036b281f57c72c4b7623894ad02b 100644
+index 37065f98c69c04029824e0f35356880e66fc002f..554f418c87d26229cb447b1103fdfca37309fe07 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandhome.java
 @@ -10,6 +10,7 @@ import net.ess3.api.TranslatableException;
@@ -125,34 +125,55 @@ index 37065f98c69c04029824e0f35356880e66fc002f..0588906f4ff6036b281f57c72c4b7623
  import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
  
  import java.util.Collections;
-@@ -48,10 +49,15 @@ public class Commandhome extends EssentialsCommand {
+@@ -48,25 +49,29 @@ public class Commandhome extends EssentialsCommand {
                  if (!player.getBase().isOnline() || player.getBase() instanceof OfflinePlayerStub) {
                      throw new TranslatableException("bedOffline");
                  }
 -                PaperLib.getBedSpawnLocationAsync(player.getBase(), true).thenAccept(location -> {
-+                Player bukkitPlayer = player.getBase();
-+                Location bedLocation = player.getRespawnLocationCompat();
-+                if (bedLocation == null || bedLocation.getWorld() == null) {
-+                    return;
-+                }
-+                bedLocation.getWorld().getChunkAtAsync(bedLocation.getBlockX() >> 4, bedLocation.getBlockZ() >> 4, false, true).thenAccept(location -> {
-                     final CompletableFuture<Boolean> future = getNewExceptionFuture(user.getSource(), commandLabel);
-                     if (location != null) {
+-                    final CompletableFuture<Boolean> future = getNewExceptionFuture(user.getSource(), commandLabel);
+-                    if (location != null) {
 -                        final UserTeleportHomeEvent event = new UserTeleportHomeEvent(user, "bed", location, UserTeleportHomeEvent.HomeType.BED);
-+                        final UserTeleportHomeEvent event = new UserTeleportHomeEvent(user, "bed", bedLocation, UserTeleportHomeEvent.HomeType.BED);
-                         server.getPluginManager().callEvent(event);
-                         if (event.isCancelled()) {
-                             return;
-@@ -61,7 +67,7 @@ public class Commandhome extends EssentialsCommand {
-                                 user.sendTl("teleportHome", "bed");
+-                        server.getPluginManager().callEvent(event);
+-                        if (event.isCancelled()) {
+-                            return;
+-                        }
+-                        future.thenAccept(success -> {
+-                            if (success) {
+-                                user.sendTl("teleportHome", "bed");
++
++                Location bedLocation = player.getRespawnLocationCompat();
++                if (bedLocation != null && bedLocation.getWorld() != null) {
++                    bedLocation.getWorld().getChunkAtAsync(bedLocation.getBlockX() >> 4, bedLocation.getBlockZ() >> 4, false, true).thenAccept(location -> {
++                        final CompletableFuture<Boolean> future = getNewExceptionFuture(user.getSource(), commandLabel);
++                        if (location != null) {
++                            final UserTeleportHomeEvent event = new UserTeleportHomeEvent(user, "bed", bedLocation, UserTeleportHomeEvent.HomeType.BED);
++                            server.getPluginManager().callEvent(event);
++                            if (event.isCancelled()) {
++                                return;
                              }
-                         });
+-                        });
 -                        user.getAsyncTeleport().teleport(location, charge, TeleportCause.COMMAND, future);
-+                        user.getAsyncTeleport().teleport(bedLocation, charge, TeleportCause.COMMAND, future);
-                     } else {
-                         showError(user.getBase(), new TranslatableException("bedMissing"), commandLabel);
-                     }
-@@ -113,7 +119,18 @@ public class Commandhome extends EssentialsCommand {
+-                    } else {
+-                        showError(user.getBase(), new TranslatableException("bedMissing"), commandLabel);
+-                    }
+-                });
+-                throw new NoChargeException();
++                            future.thenAccept(success -> {
++                                if (success) {
++                                    user.sendTl("teleportHome", "bed");
++                                }
++                            });
++                            user.getAsyncTeleport().teleport(bedLocation, charge, TeleportCause.COMMAND, future);
++                        } else {
++                            showError(user.getBase(), new TranslatableException("bedMissing"), commandLabel);
++                        }
++                    });
++                    throw new NoChargeException();
++                }
+             }
+             goHome(user, player, homeName.toLowerCase(Locale.ENGLISH), charge, getNewExceptionFuture(user.getSource(), commandLabel));
+         } catch (final NotEnoughArgumentsException e) {
+@@ -113,7 +118,18 @@ public class Commandhome extends EssentialsCommand {
                  message.complete(null);
                  return;
              }
@@ -178,7 +199,7 @@ index 7911b71037329121575586891ede9be6cb861021..ff9a7327ebe8dab0770b437f70ea4ed3
 +++ b/Essentials/src/main/java/net/ess3/api/IUser.java
 @@ -1,5 +1,8 @@
  package net.ess3.api;
- 
+
 +import org.bukkit.Location;
 +import org.bukkit.entity.Player;
 +
@@ -188,7 +209,7 @@ index 7911b71037329121575586891ede9be6cb861021..ff9a7327ebe8dab0770b437f70ea4ed3
 @@ -7,4 +10,19 @@ package net.ess3.api;
   */
  public interface IUser extends com.earth2me.essentials.IUser {
- 
+
 +    /**
 +     * Returns the respawn location of the player (bed or respawn anchor).
 +     * Compatible with all server versions: uses {@code getRespawnLocation(boolean)} on 1.21.11+,
