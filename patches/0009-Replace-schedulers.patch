@@ -218,7 +218,7 @@ index 1d1fbff1eec066e7fa1b6b80fee4b09a118d8ffc..ac72113f91004fb20fb4740398907878
                      event.setCancelled(true);
                      return;
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
-index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33db54287bf 100644
+index 6a71861193427f78145dec81dbdd25ff97262c2e..29835d96535a8814073031821de5fb116106f860 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
 @@ -94,7 +94,7 @@ import static com.earth2me.essentials.I18n.tlLiteral;
@@ -251,12 +251,12 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
  
          if (hideJoinQuitMessages() || ess.getSettings().allowSilentJoinQuit() || ess.getSettings().isCustomJoinMessage()) {
              event.setJoinMessage(null);
-@@ -463,13 +463,18 @@ public class EssentialsPlayerListener implements Listener {
+@@ -469,13 +469,18 @@ public class EssentialsPlayerListener implements Listener {
              joinMessageConsumer.accept(effectiveMessage);
          }
  
--        ess.runTaskAsynchronously(() -> ess.getServer().getPluginManager().callEvent(new AsyncUserDataLoadEvent(user, effectiveMessage)));
-+        ess.getAsyncScheduler().runNow(ess, scheduledTask -> ess.getServer().getPluginManager().callEvent(new AsyncUserDataLoadEvent(user, effectiveMessage)));
+-        ess.runTaskAsynchronously(() -> ess.getServer().getPluginManager().callEvent(new AsyncUserDataLoadEvent(user, effectiveMessage, firstJoin)));
++        ess.getAsyncScheduler().runNow(ess, scheduledTask -> ess.getServer().getPluginManager().callEvent(new AsyncUserDataLoadEvent(user, effectiveMessage, firstJoin)));
  
          if (ess.getSettings().getMotdDelay() >= 0) {
              final int motdDelay = ess.getSettings().getMotdDelay() / 50;
@@ -272,7 +272,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
              } else {
                  motdTask.run();
              }
-@@ -486,7 +491,7 @@ public class EssentialsPlayerListener implements Listener {
+@@ -492,7 +497,7 @@ public class EssentialsPlayerListener implements Listener {
          }
  
          if (user.isAuthorized("essentials.updatecheck")) {
@@ -281,7 +281,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
                  for (final ComponentHolder component : ess.getUpdateChecker().getVersionMessages(false, false, user.getSource())) {
                      user.sendComponent(component);
                  }
-@@ -585,7 +590,7 @@ public class EssentialsPlayerListener implements Listener {
+@@ -591,7 +596,7 @@ public class EssentialsPlayerListener implements Listener {
          dUser.updateActivity(false, AfkStatusChangeEvent.Cause.JOIN);
          dUser.stopTransaction();
  
@@ -290,7 +290,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
              final User user = ess.getUser(player);
  
              if (!user.getBase().isOnline()) {
-@@ -597,7 +602,7 @@ public class EssentialsPlayerListener implements Listener {
+@@ -603,7 +608,7 @@ public class EssentialsPlayerListener implements Listener {
                      ess.getServer().broadcastMessage(msg);
                  }
              });
@@ -299,7 +299,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
      }
  
      // Makes the compass item ingame always point to the first essentials home.  #EasterEgg
-@@ -760,7 +765,7 @@ public class EssentialsPlayerListener implements Listener {
+@@ -766,7 +771,7 @@ public class EssentialsPlayerListener implements Listener {
          final User user = ess.getUser(event.getPlayer());
          if (user.hasUnlimited(new ItemStack(event.getBucket()))) {
              event.getItemStack().setType(event.getBucket());
@@ -308,7 +308,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
          }
      }
  
-@@ -1007,7 +1012,7 @@ public class EssentialsPlayerListener implements Listener {
+@@ -1013,7 +1018,7 @@ public class EssentialsPlayerListener implements Listener {
                  }
              }
  
@@ -317,7 +317,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
          } catch (final Exception ex) {
              if (ess.getSettings().isDebug()) {
                  ess.getLogger().log(Level.WARNING, ex.getMessage(), ex);
-@@ -1038,7 +1043,7 @@ public class EssentialsPlayerListener implements Listener {
+@@ -1044,7 +1049,7 @@ public class EssentialsPlayerListener implements Listener {
                      }
                  }
  
@@ -326,7 +326,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
  
              }
          }
-@@ -1100,7 +1105,8 @@ public class EssentialsPlayerListener implements Listener {
+@@ -1106,7 +1111,8 @@ public class EssentialsPlayerListener implements Listener {
          }
  
          if (refreshPlayer != null) {
@@ -336,7 +336,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
          }
      }
  
-@@ -1163,7 +1169,8 @@ public class EssentialsPlayerListener implements Listener {
+@@ -1169,7 +1175,8 @@ public class EssentialsPlayerListener implements Listener {
          }
  
          if (refreshPlayer != null) {
@@ -346,7 +346,7 @@ index 1879ff5e74ee070cd8db3ee9a6ba155771366f3c..4f17ad65eb2a49f065e33b998e12c33d
          }
      }
  
-@@ -1191,10 +1198,10 @@ public class EssentialsPlayerListener implements Listener {
+@@ -1197,10 +1204,10 @@ public class EssentialsPlayerListener implements Listener {
          final Player player = event.getPlayer();
          if (player.isFlying() && player.getAllowFlight() && user.isAuthorized("essentials.fly")) {
              // The gamemode change happens after the event, so we need to delay the flight enable
@@ -410,7 +410,7 @@ index 69c8a0b3e1743d05dc594122e279df234b7e00b6..7082fe3e39e42396609b513a2af40ac6
                      syncCommandsProvider.syncCommands();
                  }
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/User.java b/Essentials/src/main/java/com/earth2me/essentials/User.java
-index 0aa301f57f1b922d6eee9c60f8d0bb98d10aeb98..33b973544f689c0b1d524e3611da163ed71a6378 100644
+index ab0281910e43327176e28483290e7dd324d89292..24dc698bd75e2727d550249c2c13958699b71413 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/User.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/User.java
 @@ -362,7 +362,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
@@ -422,7 +422,7 @@ index 0aa301f57f1b922d6eee9c60f8d0bb98d10aeb98..33b973544f689c0b1d524e3611da163e
      }
  
      private void _dispose() {
-@@ -879,7 +879,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
+@@ -880,7 +880,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
      public void updateActivityOnChat(final boolean broadcast) {
          if (ess.getSettings().cancelAfkOnChat()) {
              //Chat happens async, make sure we have a sync context
@@ -1110,7 +1110,7 @@ index 72353afb73582c301efc6135734c7434e1b67a9a..251e47165931e4ecdb7b6d26656c12fa
                  sync(event.getPlayer().getUniqueId(), ess.getLinkManager().getDiscordId(event.getPlayer().getUniqueId()));
              }
 diff --git a/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java b/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
-index bf6e19492d31835f7cf03ea801228e01f6561520..c55403845f0be906b507e3b4e2b040eb9e902a95 100644
+index 3007ba8160bd9be10497c0f406a18bebb7eb9e4f..e025a1ceb8053b29fe3ea0f7e875e2cd008ef99d 100644
 --- a/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
 +++ b/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
 @@ -50,7 +50,7 @@ class EssentialsSpawnPlayerListener implements Listener {
@@ -1122,16 +1122,7 @@ index bf6e19492d31835f7cf03ea801228e01f6561520..c55403845f0be906b507e3b4e2b040eb
                  } else { // For versions prior to 1.20.4.
                      respawnLocation = user.getBase().getBedSpawnLocation();
                  }
-@@ -77,7 +77,7 @@ class EssentialsSpawnPlayerListener implements Listener {
-     }
- 
-     void onPlayerJoin(final PlayerJoinEvent event) {
--        ess.runTaskAsynchronously(() -> delayedJoin(event.getPlayer()));
-+        ess.getAsyncScheduler().runNow(ess, scheduledTask -> delayedJoin(event.getPlayer()));
-     }
- 
-     private void delayedJoin(final Player player) {
-@@ -88,7 +88,7 @@ class EssentialsSpawnPlayerListener implements Listener {
+@@ -90,7 +90,7 @@ class EssentialsSpawnPlayerListener implements Listener {
                  final User user = ess.getUser(player);
  
                  if (ess.getSettings().isUserInSpawnOnJoinGroup(user) && !user.isAuthorized("essentials.spawn-on-join.exempt")) {
@@ -1140,7 +1131,7 @@ index bf6e19492d31835f7cf03ea801228e01f6561520..c55403845f0be906b507e3b4e2b040eb
                          final Location spawn = spawns.getSpawn(user.getGroup());
                          if (spawn == null) {
                              return;
-@@ -99,7 +99,7 @@ class EssentialsSpawnPlayerListener implements Listener {
+@@ -101,7 +101,7 @@ class EssentialsSpawnPlayerListener implements Listener {
                              return false;
                          });
                          user.getAsyncTeleport().nowUnsafe(spawn, TeleportCause.PLUGIN, future);
@@ -1149,7 +1140,7 @@ index bf6e19492d31835f7cf03ea801228e01f6561520..c55403845f0be906b507e3b4e2b040eb
                  }
              }
  
-@@ -111,10 +111,10 @@ class EssentialsSpawnPlayerListener implements Listener {
+@@ -113,10 +113,10 @@ class EssentialsSpawnPlayerListener implements Listener {
          final boolean spawnRandomly = tryRandomTeleport(user, ess.getSettings().getRandomSpawnLocation());
  
          if (!spawnRandomly && !"none".equalsIgnoreCase(ess.getSettings().getNewbieSpawn())) {
@@ -1162,7 +1153,7 @@ index bf6e19492d31835f7cf03ea801228e01f6561520..c55403845f0be906b507e3b4e2b040eb
              if (!user.getBase().isOnline()) {
                  return;
              }
-@@ -139,7 +139,7 @@ class EssentialsSpawnPlayerListener implements Listener {
+@@ -141,7 +141,7 @@ class EssentialsSpawnPlayerListener implements Listener {
              }
  
              logger.log(Level.FINE, "New player join");

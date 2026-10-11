@@ -71,10 +71,10 @@ index 592f94cfccf90bbd946dd2c76397c32f0d641692..218285c720b353b4013e4f4b48b7828b
                  if (ess.getSettings().isDebug()) {
                      ess.getLogger().info("Could not find bed spawn, forcing respawn event.");
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
-index 818062161964fd51101d99cb277d1d327143509b..1879ff5e74ee070cd8db3ee9a6ba155771366f3c 100644
+index 117c0606723a6b7e9826a25965dd3ba20f1595fc..6a71861193427f78145dec81dbdd25ff97262c2e 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
-@@ -607,9 +607,14 @@ public class EssentialsPlayerListener implements Listener {
+@@ -613,9 +613,14 @@ public class EssentialsPlayerListener implements Listener {
  
          final Location loc = user.getHome(user.getLocation());
          if (loc == null) {
@@ -91,7 +91,7 @@ index 818062161964fd51101d99cb277d1d327143509b..1879ff5e74ee070cd8db3ee9a6ba1557
                  }
              });
              return;
-@@ -998,7 +1003,7 @@ public class EssentialsPlayerListener implements Listener {
+@@ -1004,7 +1009,7 @@ public class EssentialsPlayerListener implements Listener {
                      while (LocationUtil.isBlockDamaging(loc.getWorld(), loc.getBlockX(), loc.getBlockY() - 1, loc.getBlockZ())) {
                          loc.setY(loc.getY() + 1d);
                      }

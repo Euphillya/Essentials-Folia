@@ -106,7 +106,7 @@ index e267ef5e04293d24613fbf50d206fd1faee05f8e..0e79b4652a99bb821961234e83247b26
 +folia-supported: true
 \ No newline at end of file
 diff --git a/build-logic/src/main/kotlin/essentials.base-conventions.gradle.kts b/build-logic/src/main/kotlin/essentials.base-conventions.gradle.kts
-index 3e2ebfd5c1d261b1f4eb2e60bb7a6faa381af958..8421cb532eb01e4061783028a035fb28240060ec 100644
+index 131999c13343298238c7f84606fe1617d5d619d3..85a944c2c695b871ecb846fc2b36d51911f25e93 100644
 --- a/build-logic/src/main/kotlin/essentials.base-conventions.gradle.kts
 +++ b/build-logic/src/main/kotlin/essentials.base-conventions.gradle.kts
 @@ -77,7 +77,7 @@ afterEvaluate {

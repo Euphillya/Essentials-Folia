@@ -5,10 +5,10 @@ Subject: [PATCH] Fix commands command in afk
 
 
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/User.java b/Essentials/src/main/java/com/earth2me/essentials/User.java
-index 33b973544f689c0b1d524e3611da163ed71a6378..38a18068e5f5f06ac582fd6686a1ba101632f02a 100644
+index 24dc698bd75e2727d550249c2c13958699b71413..cd44d4f56c7f67affa1b1211f70659809c084a17 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/User.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/User.java
-@@ -910,6 +910,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
+@@ -911,6 +911,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
                  }
              } else {
                  // If `afk-timeout-commands` in config.yml is populated, execute the command(s) instead of kicking the player.
@@ -16,7 +16,7 @@ index 33b973544f689c0b1d524e3611da163ed71a6378..38a18068e5f5f06ac582fd6686a1ba10
                  for (final String command : ess.getSettings().getAfkTimeoutCommands()) {
                      if (command == null || command.isEmpty()){
                          continue;
-@@ -917,7 +918,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
+@@ -918,7 +919,7 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
                      // Replace placeholders in the command with actual values.
                      final String cmd = command.replace("{USERNAME}", getName()).replace("{KICKTIME}", String.valueOf(kickTime));
                      ess.getServer().dispatchCommand(ess.getServer().getConsoleSender(), cmd);

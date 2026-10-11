@@ -5,10 +5,10 @@ Subject: [PATCH] Detect Folia
 
 
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java b/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
-index cd17b507029752bf266d6b10cc56c38bdff78cc3..7bc1ad1a369bd220c062d1b4f4bbac8893898aa0 100644
+index 100eb135acff4d859c60ef42f35cc854d18484e5..5f35b633e0827d801954f51b9b60a75d8bfec6ae 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
-@@ -76,6 +76,7 @@ public final class VersionUtil {
+@@ -77,6 +77,7 @@ public final class VersionUtil {
  
      private static final Map<String, SupportStatus> unsupportedServerClasses;
      private static final String PFX = make("8(;4>`");
@@ -16,7 +16,7 @@ index cd17b507029752bf266d6b10cc56c38bdff78cc3..7bc1ad1a369bd220c062d1b4f4bbac88
  
      static {
          final ImmutableMap.Builder<String, SupportStatus> builder = new ImmutableMap.Builder<>();
-@@ -112,6 +113,11 @@ public final class VersionUtil {
+@@ -113,6 +114,11 @@ public final class VersionUtil {
          }
  
          unsupportedServerClasses = builder.build();
@@ -28,7 +28,7 @@ index cd17b507029752bf266d6b10cc56c38bdff78cc3..7bc1ad1a369bd220c062d1b4f4bbac88
      }
  
      private static BukkitVersion serverVersion = null;
-@@ -126,6 +132,10 @@ public final class VersionUtil {
+@@ -127,6 +133,10 @@ public final class VersionUtil {
          return true;
      }
  

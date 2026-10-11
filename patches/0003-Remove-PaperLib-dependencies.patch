@@ -49,11 +49,14 @@ index b5e687f255720db2191b3c221f5efe176066b55b..592f94cfccf90bbd946dd2c76397c32f
  import net.ess3.api.IUser;
  import net.ess3.api.TranslatableException;
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
-index 1629f8e4328e73471575472f130bd8565d29ede5..4a0ec635e61d12064cbafc52c3afcead45098399 100644
+index d6ad1f93e5567de80118fe8b0e1055a7d693b15b..4a0ec635e61d12064cbafc52c3afcead45098399 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/Essentials.java
-@@ -48,7 +48,7 @@ import com.earth2me.essentials.userstorage.ModernUserMap;
+@@ -46,10 +46,9 @@ import com.earth2me.essentials.textreader.SimpleTextInput;
+ import com.earth2me.essentials.updatecheck.UpdateChecker;
+ import com.earth2me.essentials.userstorage.ModernUserMap;
  import com.earth2me.essentials.utils.FormatUtil;
+-import com.earth2me.essentials.utils.ModernPaperEnvironment;
  import com.earth2me.essentials.utils.PasteUtil;
  import com.earth2me.essentials.utils.VersionUtil;
 -import io.papermc.lib.PaperLib;
@@ -61,7 +64,18 @@ index 1629f8e4328e73471575472f130bd8565d29ede5..4a0ec635e61d12064cbafc52c3afcead
  import net.ess3.api.Economy;
  import com.earth2me.essentials.config.EssentialsConfiguration;
  import net.ess3.api.IEssentials;
-@@ -410,7 +410,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
+@@ -262,10 +261,6 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
+                 getLogger().severe(getAdventureFacet().miniToLegacy(tlLiteral("serverSnapshot")));
+             }
+ 
+-            if (PaperLib.isPaper() && !PaperLib.isVersion(13) && VersionUtil.getServerBukkitVersion().isHigherThanOrEqualTo(VersionUtil.v1_13_0_R01)) {
+-                PaperLib.setCustomEnvironment(new ModernPaperEnvironment());
+-            }
+-
+             final PluginManager pm = getServer().getPluginManager();
+             for (final Plugin plugin : pm.getPlugins()) {
+                 if (plugin.getDescription().getName().startsWith("Essentials") && !plugin.getDescription().getVersion().equals(this.getDescription().getVersion()) && !plugin.getDescription().getName().equals("EssentialsAntiCheat")) {
+@@ -415,7 +410,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
              }
  
              // Event Providers
@@ -71,7 +85,7 @@ index 1629f8e4328e73471575472f130bd8565d29ede5..4a0ec635e61d12064cbafc52c3afcead
                      Class.forName("com.destroystokyo.paper.event.player.PlayerRecipeBookClickEvent");
                      recipeBookEventProvider = new PaperRecipeBookListener(event -> {
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
-index 11a553cf8febefd4db31cdfafb981d540f89a7c6..818062161964fd51101d99cb277d1d327143509b 100644
+index 60d3b4c25f801fe63a68e79614128b2f291e44d4..117c0606723a6b7e9826a25965dd3ba20f1595fc 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/EssentialsPlayerListener.java
 @@ -15,7 +15,7 @@ import com.earth2me.essentials.utils.FormatUtil;
@@ -130,8 +144,37 @@ index 8dca6262081694cd3fbc7856c3eb4750407cf9eb..37065f98c69c04029824e0f35356880e
  import net.ess3.api.TranslatableException;
  import net.ess3.api.events.UserTeleportHomeEvent;
  import org.bukkit.Location;
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/utils/ModernPaperEnvironment.java b/Essentials/src/main/java/com/earth2me/essentials/utils/ModernPaperEnvironment.java
+deleted file mode 100644
+index 1311f223d9306cc80cbc1a58aed72ca4cb8d9ded..0000000000000000000000000000000000000000
+--- a/Essentials/src/main/java/com/earth2me/essentials/utils/ModernPaperEnvironment.java
++++ /dev/null
+@@ -1,23 +0,0 @@
+-package com.earth2me.essentials.utils;
+-
+-import io.papermc.lib.environments.PaperEnvironment;
+-import io.papermc.lib.features.asyncchunks.AsyncChunksPaper_15;
+-import io.papermc.lib.features.asyncteleport.AsyncTeleportPaper_13;
+-import io.papermc.lib.features.bedspawnlocation.BedSpawnLocationPaper;
+-import io.papermc.lib.features.chunkisgenerated.ChunkIsGeneratedApiExists;
+-
+-/**
+- * A PaperLib environment for Paper servers whose version PaperLib cannot read.
+- * <p>
+- * PaperLib 1.0.6 expects a single digit major version in {@code Bukkit#getVersion()}, so it reads 26.x as version 0 and
+- * selects its synchronous fallbacks for chunk loading, teleporting and bed lookups. All of those exist on every Paper
+- * version that reports a year based version.
+- */
+-public class ModernPaperEnvironment extends PaperEnvironment {
+-    public ModernPaperEnvironment() {
+-        asyncChunksHandler = new AsyncChunksPaper_15();
+-        asyncTeleportHandler = new AsyncTeleportPaper_13();
+-        isGeneratedHandler = new ChunkIsGeneratedApiExists();
+-        bedSpawnLocationHandler = new BedSpawnLocationPaper();
+-    }
+-}
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java b/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
-index f8eaa65af67377714d52fdde6a73b59f8cd8d753..cd17b507029752bf266d6b10cc56c38bdff78cc3 100644
+index 299c16e09e3033923e7158d8cadec1e7f6d1d6ae..100eb135acff4d859c60ef42f35cc854d18484e5 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/utils/VersionUtil.java
 @@ -4,7 +4,7 @@ import com.google.common.base.Objects;
@@ -143,7 +186,7 @@ index f8eaa65af67377714d52fdde6a73b59f8cd8d753..cd17b507029752bf266d6b10cc56c38b
  import net.ess3.nms.refl.ReflUtil;
  import org.bukkit.Bukkit;
  
-@@ -123,7 +123,7 @@ public final class VersionUtil {
+@@ -124,7 +124,7 @@ public final class VersionUtil {
      }
  
      public static boolean isPaper() {
@@ -152,7 +195,7 @@ index f8eaa65af67377714d52fdde6a73b59f8cd8d753..cd17b507029752bf266d6b10cc56c38b
      }
  
      public static BukkitVersion getServerBukkitVersion() {
-@@ -182,7 +182,7 @@ public final class VersionUtil {
+@@ -183,7 +183,7 @@ public final class VersionUtil {
                  return supportStatus = SupportStatus.OUTDATED;
              }
  
@@ -161,3 +204,71 @@ index f8eaa65af67377714d52fdde6a73b59f8cd8d753..cd17b507029752bf266d6b10cc56c38b
          }
          return supportStatus;
      }
+diff --git a/Essentials/src/test/java/com/earth2me/essentials/utils/ModernPaperEnvironmentTest.java b/Essentials/src/test/java/com/earth2me/essentials/utils/ModernPaperEnvironmentTest.java
+deleted file mode 100644
+index 7bb08cfb760ef7f203a4e9a6b7a69ac816eaf173..0000000000000000000000000000000000000000
+--- a/Essentials/src/test/java/com/earth2me/essentials/utils/ModernPaperEnvironmentTest.java
++++ /dev/null
+@@ -1,62 +0,0 @@
+-package com.earth2me.essentials.utils;
+-
+-import io.papermc.lib.environments.PaperEnvironment;
+-import org.bukkit.Bukkit;
+-import org.bukkit.Location;
+-import org.bukkit.World;
+-import org.bukkit.entity.Entity;
+-import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+-import org.junit.jupiter.api.Test;
+-import org.mockito.MockedStatic;
+-
+-import java.util.function.Consumer;
+-import java.util.function.Supplier;
+-
+-import static org.mockito.ArgumentMatchers.any;
+-import static org.mockito.Mockito.mock;
+-import static org.mockito.Mockito.mockStatic;
+-import static org.mockito.Mockito.never;
+-import static org.mockito.Mockito.verify;
+-
+-public class ModernPaperEnvironmentTest {
+-    private static final String YEAR_VERSION = "26.3-140-main@a1b2c3d (2026-09-30T10:00:00Z) (MC: 26.3)";
+-
+-    @Test
+-    public void testPaperLibFallsBackToSynchronousTeleportOnYearVersions() {
+-        // Documents why ModernPaperEnvironment exists: PaperLib itself picks the synchronous handlers here.
+-        withVersion(YEAR_VERSION, PaperEnvironment::new, env -> {
+-            final Entity entity = mock(Entity.class);
+-            final Location location = new Location(mock(World.class), 0, 64, 0);
+-            env.teleport(entity, location, TeleportCause.PLUGIN);
+-            verify(entity).teleport(location, TeleportCause.PLUGIN);
+-            verify(entity, never()).teleportAsync(any(Location.class), any(TeleportCause.class));
+-        });
+-    }
+-
+-    @Test
+-    public void testTeleportsAsynchronouslyOnYearVersions() {
+-        withVersion(YEAR_VERSION, ModernPaperEnvironment::new, env -> {
+-            final Entity entity = mock(Entity.class);
+-            final Location location = new Location(mock(World.class), 0, 64, 0);
+-            env.teleport(entity, location, TeleportCause.PLUGIN);
+-            verify(entity).teleportAsync(location, TeleportCause.PLUGIN);
+-            verify(entity, never()).teleport(any(Location.class), any(TeleportCause.class));
+-        });
+-    }
+-
+-    @Test
+-    public void testLoadsChunksAsynchronouslyOnYearVersions() {
+-        withVersion(YEAR_VERSION, ModernPaperEnvironment::new, env -> {
+-            final World world = mock(World.class);
+-            env.getChunkAtAsync(world, 1, 2, true);
+-            verify(world).getChunkAtAsync(1, 2, true, false);
+-        });
+-    }
+-
+-    private static <E extends PaperEnvironment> void withVersion(final String version, final Supplier<E> create, final Consumer<E> test) {
+-        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+-            bukkit.when(Bukkit::getVersion).thenReturn(version);
+-            test.accept(create.get());
+-        }
+-    }
+-}
