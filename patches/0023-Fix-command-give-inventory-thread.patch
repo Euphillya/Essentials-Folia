@@ -51,7 +51,7 @@ index 0000000000000000000000000000000000000000..00000000000000000000000000000000
 +            };
 +
 +            if (com.earth2me.essentials.utils.VersionUtil.isFoliaServer()) {
-+                essRef.getEntityScheduler(target.getBase()).execute(essRef, giveTask, () -> {});
++                essRef.getEntityScheduler(target.getBase()).execute(essRef, giveTask, () -> {}, 1L);
 +            } else {
 +                giveTask.run();
 +            }
