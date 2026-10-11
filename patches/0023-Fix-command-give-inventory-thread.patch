@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: NotHammer043 <nothammer@nanomidi.net>
+Date: Sun, 11 Oct 2026 16:20:00 +0200
+Subject: [PATCH] Fix command give inventory modification on wrong thread
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgive.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgive.java
+index 0000000000000000000000000000000000000000..0000000000000000000000000000000000000000 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgive.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandgive.java
+@@ -1,6 +1,7 @@
+ package com.earth2me.essentials.commands;
+
+ import com.earth2me.essentials.CommandSource;
++import com.earth2me.essentials.IEssentials;
+ import com.earth2me.essentials.MetaItemStack;
+ import com.earth2me.essentials.User;
+ import com.earth2me.essentials.craftbukkit.Inventories;
+@@ -80,16 +81,30 @@ public class Commandgive extends EssentialsLoopCommand {
+         loopOnlinePlayersConsumer(server, sender, false, true, args[0], player -> {
+             sender.sendTl("giveSpawn", finalStack.getAmount(), itemName, player.getDisplayName());
+
+-            final Map<Integer, ItemStack> leftovers = Inventories.addItem(player.getBase(), player.isAuthorized("essentials.oversizedstacks") ? ess.getSettings().getOversizedStackSize() : 0, finalStack);
++            final IEssentials essRef = ess;
++            final User target = player;
++            final ItemStack stackRef = finalStack;
++            final Runnable giveTask = () -> {
++                if (!target.getBase().isOnline()) {
++                    return;
++                }
++                final Map<Integer, ItemStack> leftovers = Inventories.addItem(target.getBase(), target.isAuthorized("essentials.oversizedstacks") ? essRef.getSettings().getOversizedStackSize() : 0, stackRef);
+
+-            for (final ItemStack item : leftovers.values()) {
+-                if (isDropItemsIfFull) {
+-                    final World w = player.getWorld();
+-                    w.dropItemNaturally(player.getLocation(), item);
+-                } else {
+-                    sender.sendTl("giveSpawnFailure", item.getAmount(), itemName, player.getDisplayName());
++                for (final ItemStack item : leftovers.values()) {
++                    if (isDropItemsIfFull) {
++                        final World w = target.getWorld();
++                        w.dropItemNaturally(target.getLocation(), item);
++                    } else {
++                        sender.sendTl("giveSpawnFailure", item.getAmount(), itemName, target.getDisplayName());
++                    }
+                 }
+-            }
+
+-            player.getBase().updateInventory();
++                target.getBase().updateInventory();
++            };
++
++            if (com.earth2me.essentials.utils.VersionUtil.isFoliaServer()) {
++                essRef.getEntityScheduler(target.getBase()).execute(essRef, giveTask, () -> {});
++            } else {
++                giveTask.run();
++            }
+         });
+     }
+
