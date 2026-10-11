@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Euphyllia Bierque <bierque.euphyllia@gmail.com>
+Date: Sun, 11 Oct 2026 07:52:27 +0200
+Subject: [PATCH] Fix random spawn and respawn location
+
+
+diff --git a/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java b/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
+index 2195903d8d6bdd7790b1bedc6c6f07d33cf3836b..b00616e0e51cf0dd9c6b9b276eb8775bda825cd6 100644
+--- a/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
++++ b/Essentials/src/main/java/com/earth2me/essentials/RandomTeleport.java
+@@ -30,7 +30,7 @@ public class RandomTeleport implements IConf {
+     private static final int HIGHEST_BLOCK_Y_OFFSET = VersionUtil.getServerBukkitVersion().isHigherThanOrEqualTo(VersionUtil.v1_15_R01) ? 1 : 0;
+     private final IEssentials ess;
+     private final EssentialsConfiguration config;
+-    private final Map<String, ConcurrentLinkedQueue<Location>> cachedLocations = new HashMap<>();
++    private final Map<String, ConcurrentLinkedQueue<Location>> cachedLocations = new java.util.concurrent.ConcurrentHashMap<>();
+     private WorldInfoProvider worldInfoProvider;
+ 
+     public RandomTeleport(final IEssentials essentials) {
+diff --git a/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java b/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
+index e025a1ceb8053b29fe3ea0f7e875e2cd008ef99d..78127dc0cc15f9298c1c042de3d8774e64f24341 100644
+--- a/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
++++ b/EssentialsSpawn/src/main/java/com/earth2me/essentials/spawn/EssentialsSpawnPlayerListener.java
+@@ -174,9 +174,37 @@ class EssentialsSpawnPlayerListener implements Listener {
+             return false;
+         }
+         ess.getRandomTeleport().getRandomLocation(name).thenAccept(location -> {
+-            final CompletableFuture<Boolean> future = new CompletableFuture<>();
+-            user.getAsyncTeleport().now(location, false, PlayerTeleportEvent.TeleportCause.PLUGIN, future);
++            ess.getEntityScheduler(user.getBase()).runDelayed(ess, scheduledTask -> teleportRandomly(user, location), null, 1L);
+         });
+         return true;
+     }
++
++    private void teleportRandomly(final User user, final Location location) {
++        if (!user.getBase().isOnline()) {
++            return;
++        }
++        final CompletableFuture<Boolean> future = new CompletableFuture<>();
++        future.exceptionally(e -> {
++            if (ess.getSettings().isDebug()) {
++                logger.log(Level.INFO, "Safe random spawn teleport failed, teleporting directly", e);
++            }
++            teleportRandomlyUnsafe(user, location);
++            return false;
++        });
++
++        try {
++            user.getAsyncTeleport().now(location, false, TeleportCause.PLUGIN, future);
++        } catch (final Exception e) {
++            future.completeExceptionally(e);
++        }
++    }
++
++    private void teleportRandomlyUnsafe(final User user, final Location location) {
++        final CompletableFuture<Boolean> future = new CompletableFuture<>();
++        future.exceptionally(e -> {
++            logger.log(Level.WARNING, "Could not teleport " + user.getName() + " to a random spawn location", e);
++            return false;
++        });
++        user.getAsyncTeleport().nowUnsafe(location, TeleportCause.PLUGIN, future);
++    }
+ }
