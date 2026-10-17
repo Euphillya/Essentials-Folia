@@ -5,16 +5,42 @@ Subject: [PATCH] Fix command time
 
 
 diff --git a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandtime.java b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandtime.java
-index f4ab381936829a1990e32c967264022a9c15dedc..68034ced058d7c994a23244380e7da8e01b686f0 100644
+index f4ab38193..b0a79fefa 100644
 --- a/Essentials/src/main/java/com/earth2me/essentials/commands/Commandtime.java
 +++ b/Essentials/src/main/java/com/earth2me/essentials/commands/Commandtime.java
-@@ -97,7 +97,8 @@ public class Commandtime extends EssentialsCommand {
+@@ -9,6 +9,8 @@ import net.ess3.api.TranslatableException;
+ import org.bukkit.Server;
+ import org.bukkit.World;
+ import org.bukkit.entity.Player;
++import org.bukkit.Chunk;
++import org.bukkit.Location;
+ 
+ import java.util.Arrays;
+ import java.util.Collection;
+@@ -97,7 +99,25 @@ public class Commandtime extends EssentialsCommand {
              if (!add) {
                  time -= time % 24000;
              }
 -            world.setTime(time + (add ? 0 : 24000) + timeTick);
 +            final long timeFinal = time + (add ? 0 : 24000) + timeTick;
-+            ess.getGlobalRegionScheduler().execute(ess, () -> world.setTime(timeFinal));
++            if (com.earth2me.essentials.utils.VersionUtil.isFoliaServer()) {
++                final Location anchor;
++                final List<Player> worldPlayers = world.getPlayers();
++                if (!worldPlayers.isEmpty()) {
++                    anchor = worldPlayers.get(0).getLocation();
++                } else {
++                    final Chunk[] loaded = world.getLoadedChunks();
++                    if (loaded.length == 0) {
++                        continue;
++                    }
++                    final Chunk chunk = loaded[0];
++                    anchor = chunk.getBlock(8, chunk.getWorld().getHighestBlockYAt(8, 8), 8).getLocation();
++                }
++                final World finalWorld = world;
++                ess.getRegionScheduler().execute(ess, anchor, () -> finalWorld.setTime(timeFinal));
++            } else {
++                world.setTime(timeFinal);
++            }
  
              // Re-apply ptime offsets so players maintain their intended visible time
              final long newWorldTime = world.getTime();
